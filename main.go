@@ -547,26 +547,38 @@ func handleAddCommand(chatID int64, text string) {
 	if random {
 		// 生成当前时间之后的随机时间
 		now := time.Now()
-		currentHour := now.Hour()
-		currentMinute := now.Minute()
+		hour := now.Hour()
+		minute := now.Minute()
 		
 		// 生成当前小时或之后的小时
-		randomHour := currentHour + rand.Intn(24 - currentHour)
-		if randomHour >= 24 {
-			randomHour = 23
-		}
-		
-		// 如果是当前小时，生成当前分钟之后的分钟
-		if randomHour == currentHour {
-			randomMinute := currentMinute + 1 + rand.Intn(60 - currentMinute - 1)
-			if randomMinute >= 60 {
-				randomMinute = 59
+		hourRange := 23 - hour
+		if hourRange > 0 {
+			randomHour := hour + rand.Intn(hourRange + 1)
+			// 如果是当前小时，生成当前分钟之后的分钟
+			if randomHour == hour {
+				minuteRange := 59 - minute
+				if minuteRange > 0 {
+					randomMinute := minute + 1 + rand.Intn(minuteRange)
+					randomTime = fmt.Sprintf("%02d:%02d", randomHour, randomMinute)
+				} else {
+					// 当前时间是23:59，只能选择23:59
+					randomTime = "23:59"
+				}
+			} else {
+				// 其他小时，生成任意分钟
+				randomMinute := rand.Intn(60)
+				randomTime = fmt.Sprintf("%02d:%02d", randomHour, randomMinute)
 			}
-			randomTime = fmt.Sprintf("%02d:%02d", randomHour, randomMinute)
 		} else {
-			// 其他小时，生成任意分钟
-			randomMinute := rand.Intn(60)
-			randomTime = fmt.Sprintf("%02d:%02d", randomHour, randomMinute)
+			// 当前时间是23点，只能选择23点
+			minuteRange := 59 - minute
+			if minuteRange > 0 {
+				randomMinute := minute + 1 + rand.Intn(minuteRange)
+				randomTime = fmt.Sprintf("23:%02d", randomMinute)
+			} else {
+				// 当前时间是23:59，只能选择23:59
+				randomTime = "23:59"
+			}
 		}
 		fmt.Printf("生成随机时间: %s\n", randomTime)
 	}
@@ -747,15 +759,26 @@ func checkinScheduler() {
 // 检查用户签到
 func checkinUsers() {
 	usersMutex.Lock()
-	userCopy := make([]User, len(users))
-	copy(userCopy, users)
-	usersMutex.Unlock()
-
-	// 使用北京时间
+	// 检查是否是新的一天，如果是，重置所有用户的随机时间
 	now := time.Now().In(beijingLoc)
 	currentHour := now.Hour()
 	currentMinute := now.Minute()
 	
+	// 如果是每天的00:00，重置所有用户的随机时间
+	if currentHour == 0 && currentMinute == 0 {
+		for i, user := range users {
+			if user.Random && user.RandomTime == "checked" {
+				users[i].RandomTime = ""
+			}
+		}
+		saveData()
+		fmt.Println("=== 新的一天开始，重置所有用户的随机时间 ===")
+	}
+	
+	userCopy := make([]User, len(users))
+	copy(userCopy, users)
+	usersMutex.Unlock()
+
 	// 调试日志：打印当前时间
 	fmt.Printf("=== 签到调度器运行 ===\n")
 	fmt.Printf("当前时间(北京时间): %02d:%02d\n", currentHour, currentMinute)
@@ -774,19 +797,22 @@ func checkinUsers() {
 			
 			if user.RandomTime == "" {
 				// 生成今天的随机时间，确保是当前时间之后的时间
-				currentHour := now.Hour()
-				currentMinute := now.Minute()
-				
-				// 生成当前小时或之后的小时
-				randomHour = currentHour + rand.Intn(24 - currentHour)
-				if randomHour >= 24 {
+				// 使用外部的currentHour和currentMinute，确保时间一致性
+				hourRange := 23 - currentHour
+				if hourRange > 0 {
+					randomHour = currentHour + rand.Intn(hourRange + 1)
+				} else {
+					// 当前时间是23点，只能选择23点
 					randomHour = 23
 				}
 				
 				// 如果是当前小时，生成当前分钟之后的分钟
 				if randomHour == currentHour {
-					randomMinute = currentMinute + 1 + rand.Intn(60 - currentMinute - 1)
-					if randomMinute >= 60 {
+					minuteRange := 59 - currentMinute
+					if minuteRange > 0 {
+						randomMinute = currentMinute + 1 + rand.Intn(minuteRange)
+					} else {
+						// 当前时间是23:59，只能选择23:59
 						randomMinute = 59
 					}
 				} else {
@@ -810,9 +836,14 @@ func checkinUsers() {
 			if randomHour == currentHour && randomMinute == currentMinute {
 				fmt.Printf("开始随机签到用户: %s\n", user.Token)
 				go performCheckin(user.Token)
-				// 签到后清空随机时间，明天重新生成
-				user.RandomTime = ""
+				// 签到后清空随机时间，并且当天不再重新生成
+				user.RandomTime = "checked"
 				needUpdate = true
+			}
+			
+			// 跳过已经签到的用户，不再生成随机时间
+			if user.RandomTime == "checked" {
+				continue
 			}
 			
 			// 如果需要更新用户信息，保存到数据中
@@ -923,11 +954,35 @@ func checkin(token string) (CheckinResult, error, string) {
 	var result CheckinResult
 	var statusText string
 
-	// 添加文字内容以获得更多萝卜
-	content := "每日签到，希望获得更多萝卜！"
-	url := fmt.Sprintf("%s/api/user/sign?content=%s", config.ApiBaseURL, url.QueryEscape(content))
+	// 准备多种签到内容，随机选择一个
+	checkinContents := []string{
+		"每日签到，希望获得更多萝卜！",
+		"今天也要记得签到哦，萝卜在等我！",
+		"签到打卡，快乐每一天！",
+		"坚持签到，收获满满！",
+		"又是充满希望的一天，签到啦！",
+		"签到成功，开心每一天！",
+		"每日一签，好运连连！",
+		"签到打卡，记录生活点滴！",
+	}
+	
+	// 随机选择一个签到内容
+	randomIndex := rand.Intn(len(checkinContents))
+	content := checkinContents[randomIndex]
+	
+	url := fmt.Sprintf("%s/api/user/sign", config.ApiBaseURL)
+	
+	// 准备请求体
+	reqBody := map[string]string{
+		"content": content,
+	}
+	body, err := json.Marshal(reqBody)
+	if err != nil {
+		return result, err, "JSON编码失败"
+	}
+	
 	// 使用PUT方法
-	req, err := http.NewRequest(http.MethodPut, url, nil)
+	req, err := http.NewRequest(http.MethodPut, url, strings.NewReader(string(body)))
 	if err != nil {
 		return result, err, "网络请求失败"
 	}
@@ -947,7 +1002,7 @@ func checkin(token string) (CheckinResult, error, string) {
 	fmt.Printf("签到响应头: %v\n", resp.Header)
 
 	// 读取响应体
-	body, err := io.ReadAll(resp.Body)
+	responseBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return result, err, "读取响应失败"
 	}
@@ -955,7 +1010,7 @@ func checkin(token string) (CheckinResult, error, string) {
 	// 检查响应状态码
 	if resp.StatusCode == http.StatusOK {
 		// 解析响应体
-		if err := json.Unmarshal(body, &result); err != nil {
+		if err := json.Unmarshal(responseBody, &result); err != nil {
 			return result, err, "解析响应失败"
 		}
 		statusText = "签到成功"
