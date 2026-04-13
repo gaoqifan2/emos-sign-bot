@@ -36,6 +36,7 @@ type User struct {
 	Random     bool   `json:"random"`
 	RandomTime string `json:"random_time"` // 当天的随机签到时间
 	Remark     string `json:"remark"`      // 用户备注
+	Username   string `json:"username"`    // 用户名
 }
 
 // 签到结果
@@ -622,30 +623,13 @@ func handleAddCommand(chatID int64, text string) {
 	}
 	
 	// 调试日志：打印解析后的参数
-	printlnUTF8(fmt.Sprintf("Parsed token: '%s'", token))
+	printlnUTF8(fmt.Sprintf("Parsed token: '%s'", truncateToken(token)))
 	printlnUTF8(fmt.Sprintf("Parsed time: '%s'", timeStr))
 	printlnUTF8(fmt.Sprintf("Parsed random: %v", random))
 	printlnUTF8(fmt.Sprintf("Parsed remark: '%s'", remark))
 
 	usersMutex.Lock()
 	defer usersMutex.Unlock()
-
-	// 检查是否已存在
-	found := false
-	for i, user := range users {
-		if user.Token == token {
-			// 更新现有用户
-			users[i] = User{
-				Token:  token,
-				Time:   timeStr,
-				Random: random,
-				Remark: remark,
-			}
-			found = true
-			printlnUTF8(fmt.Sprintf("更新用户: %s, 备注: %s", token, remark))
-			break
-		}
-	}
 
 	// 生成随机时间（如果是随机签到）
 	randomTime := ""
@@ -687,6 +671,35 @@ func handleAddCommand(chatID int64, text string) {
 		}
 		printlnUTF8(fmt.Sprintf("生成随机时间: %s", randomTime))
 	}
+	
+	// 获取用户信息
+	username := ""
+	userInfo, err := getUserInfo(token)
+	if err != nil {
+		printlnUTF8(fmt.Sprintf("获取用户信息失败: %v，使用空用户名", err))
+	} else {
+		username = userInfo.Username
+		printlnUTF8(fmt.Sprintf("获取用户信息成功: %s", username))
+	}
+
+	// 检查是否已存在
+	found := false
+	for i, user := range users {
+		if user.Token == token {
+			// 更新现有用户
+			users[i] = User{
+					Token:      token,
+					Time:       timeStr,
+					Random:     random,
+					RandomTime: randomTime,
+					Remark:     remark,
+					Username:   username,
+				}
+				found = true
+				printlnUTF8(fmt.Sprintf("更新用户: %s, 用户名: %s, 备注: %s", truncateToken(token), username, remark))
+				break
+		}
+	}
 
 	if !found {
 		// 添加新用户
@@ -696,8 +709,9 @@ func handleAddCommand(chatID int64, text string) {
 			Random:     random,
 			RandomTime: randomTime,
 			Remark:     remark,
+			Username:   username,
 		})
-		printlnUTF8(fmt.Sprintf("添加新用户: %s, 备注: %s", token, remark))
+		printlnUTF8(fmt.Sprintf("添加新用户: %s, 用户名: %s, 备注: %s", truncateToken(token), username, remark))
 	} else {
 		// 更新现有用户
 		for i, user := range users {
@@ -708,11 +722,12 @@ func handleAddCommand(chatID int64, text string) {
 					Random:     random,
 					RandomTime: randomTime,
 					Remark:     remark,
+					Username:   username,
 				}
 				break
 			}
 		}
-		printlnUTF8(fmt.Sprintf("更新用户: %s, 备注: %s", token, remark))
+		printlnUTF8(fmt.Sprintf("更新用户: %s, 用户名: %s, 备注: %s", truncateToken(token), username, remark))
 	}
 	
 	// 保存数据
@@ -772,6 +787,9 @@ func handleListCommand(chatID int64) {
 	message := "当前签到用户列表:\n"
 	for i, user := range users {
 		message += fmt.Sprintf("%d. Token: %s\n", i+1, truncateToken(user.Token))
+		if user.Username != "" {
+			message += fmt.Sprintf("   用户名: %s\n", user.Username)
+		}
 		message += fmt.Sprintf("   时间: %s\n", func() string {
 			if user.Random {
 				return "随机"
@@ -898,7 +916,7 @@ func checkinUsers() {
 
 	for i, user := range userCopy {
 		// 调试日志：打印用户信息
-		printlnUTF8(fmt.Sprintf("用户 %d: Token=%s, Time=%s, Random=%v", i+1, user.Token, user.Time, user.Random))
+		printlnUTF8(fmt.Sprintf("用户 %d: Token=%s, Time=%s, Random=%v", i+1, truncateToken(user.Token), user.Time, user.Random))
 		
 		if user.Random {
 			// 随机签到，每天随机选择一个时间
@@ -944,10 +962,10 @@ func checkinUsers() {
 				}
 			}
 			
-			printlnUTF8(fmt.Sprintf("随机签到: user=%s, 随机时间=%s, 当前时间=%02d:%02d", user.Token, user.RandomTime, currentHour, currentMinute))
+			printlnUTF8(fmt.Sprintf("随机签到: user=%s, 随机时间=%s, 当前时间=%02d:%02d", truncateToken(user.Token), user.RandomTime, currentHour, currentMinute))
 			
 			if randomHour == currentHour && randomMinute == currentMinute {
-				printlnUTF8(fmt.Sprintf("开始随机签到用户: %s", user.Token))
+				printlnUTF8(fmt.Sprintf("开始随机签到用户: %s", truncateToken(user.Token)))
 				go performCheckin(user.Token)
 				// 签到后清空随机时间，并且当天不再重新生成
 				user.RandomTime = "checked"
@@ -974,25 +992,25 @@ func checkinUsers() {
 		} else {
 			// 固定时间签到
 			parts := strings.Split(user.Time, ":")
-			printlnUTF8(fmt.Sprintf("固定时间签到: user=%s, time=%s, split parts=%v", user.Token, user.Time, parts))
+			printlnUTF8(fmt.Sprintf("固定时间签到: user=%s, time=%s, split parts=%v", truncateToken(user.Token), user.Time, parts))
 			if len(parts) == 2 {
 				hour, err := strconv.Atoi(parts[0])
 				if err != nil {
-					printlnUTF8(fmt.Sprintf("用户 %s 的小时格式无效: %v", user.Token, err))
+					printlnUTF8(fmt.Sprintf("用户 %s 的小时格式无效: %v", truncateToken(user.Token), err))
 					continue
 				}
 				minute, err := strconv.Atoi(parts[1])
 				if err != nil {
-					printlnUTF8(fmt.Sprintf("用户 %s 的分钟格式无效: %v", user.Token, err))
+					printlnUTF8(fmt.Sprintf("用户 %s 的分钟格式无效: %v", truncateToken(user.Token), err))
 					continue
 				}
-				printlnUTF8(fmt.Sprintf("检查用户 %s: 计划时间=%02d:%02d, 当前时间=%02d:%02d", user.Token, hour, minute, currentHour, currentMinute))
+				printlnUTF8(fmt.Sprintf("检查用户 %s: 计划时间=%02d:%02d, 当前时间=%02d:%02d", truncateToken(user.Token), hour, minute, currentHour, currentMinute))
 				if hour == currentHour && minute == currentMinute {
-					printlnUTF8(fmt.Sprintf("开始签到用户: %s", user.Token))
+					printlnUTF8(fmt.Sprintf("开始签到用户: %s", truncateToken(user.Token)))
 					go performCheckin(user.Token)
 				}
 			} else {
-				printlnUTF8(fmt.Sprintf("用户 %s 的时间格式无效: %s", user.Token, user.Time))
+				printlnUTF8(fmt.Sprintf("用户 %s 的时间格式无效: %s", truncateToken(user.Token), user.Time))
 			}
 		}
 	}
