@@ -1,0 +1,35 @@
+{
+  "users": [
+    {
+      "token": "test_token3",
+      "time": "22:00",
+      "random": false,
+      "random_time": "",
+      "remark": ""
+    },
+    {
+      "token": "test_random_token",
+      "time": "00:00",
+      "random": true,
+      "random_time": "01:58",
+      "remark": ""
+    },
+    {
+      "token": "test_random_token2",
+      "time": "00:00",
+      "random": true,
+      "random_time": "23:53",
+      "remark": ""
+    },
+    {
+      "token": "1072_27phBMQqF1tTuiUN",
+      "time": "21:51",
+      "random": false,
+      "random_time": "",
+      "remark": "我的账号"
+    }
+  ],
+  "chat_ids": {
+    "8230046662": true
+  }
+}

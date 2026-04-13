@@ -1,0 +1,17 @@
+{
+  "name": "auto-checkin-bot",
+  "version": "1.0.0",
+  "description": "自动签到脚本，支持多个账号定时签到并发送通知",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node index.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "node-cron": "^3.0.3",
+    "axios": "^1.6.2"
+  },
+  "author": "",
+  "license": "MIT"
+}
