@@ -970,25 +970,16 @@ func checkin(token string) (CheckinResult, error, string) {
 	randomIndex := rand.Intn(len(checkinContents))
 	content := checkinContents[randomIndex]
 	
-	url := fmt.Sprintf("%s/api/user/sign", config.ApiBaseURL)
+	// 将content作为查询参数添加到URL中
+	url := fmt.Sprintf("%s/api/user/sign?content=%s", config.ApiBaseURL, url.QueryEscape(content))
 	
-	// 准备请求体
-	reqBody := map[string]string{
-		"content": content,
-	}
-	body, err := json.Marshal(reqBody)
-	if err != nil {
-		return result, err, "JSON编码失败"
-	}
-	
-	// 使用PUT方法
-	req, err := http.NewRequest(http.MethodPut, url, strings.NewReader(string(body)))
+	// 使用PUT方法，请求体为nil
+	req, err := http.NewRequest(http.MethodPut, url, nil)
 	if err != nil {
 		return result, err, "网络请求失败"
 	}
 
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
-	req.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
