@@ -64,3 +64,77 @@ Telegram轮询已启用
 用户 2: Token=4968_unXmpyhUC3oPVpHa, Time=00:00, Random=true
 随机签到: user=4968_unXmpyhUC3oPVpHa, 随机时间=01:59, 当前时间=02:03
 [02:03:56] 系统运行中 - 当前用户: 2, 当前chat_ids: 1
+[02:04:04] 系统运行中 - 当前用户: 2, 当前chat_ids: 1
+[02:04:06] 系统运行中 - 当前用户: 2, 当前chat_ids: 1
+[02:04:14] 系统运行中 - 当前用户: 2, 当前chat_ids: 1
+[02:04:16] 系统运行中 - 当前用户: 2, 当前chat_ids: 1
+=== 签到调度器运行 ===
+当前时间(北京时间): 02:04
+用户数量: 2
+用户 1: Token=1072_27phBMQqF1tTuiUN, Time=01:55, Random=false
+固定时间签到: user=1072_27phBMQqF1tTuiUN, time=01:55, split parts=[01 55]
+检查用户 1072_27phBMQqF1tTuiUN: 计划时间=01:55, 当前时间=02:04
+用户 2: Token=4968_unXmpyhUC3oPVpHa, Time=00:00, Random=true
+随机签到: user=4968_unXmpyhUC3oPVpHa, 随机时间=01:59, 当前时间=02:04
+[02:04:24] 系统运行中 - 当前用户: 2, 当前chat_ids: 1
+[02:04:26] 系统运行中 - 当前用户: 2, 当前chat_ids: 1
+[02:04:34] 系统运行中 - 当前用户: 2, 当前chat_ids: 1
+[02:04:36] 系统运行中 - 当前用户: 2, 当前chat_ids: 1
+[02:04:44] 系统运行中 - 当前用户: 2, 当前chat_ids: 1
+[02:04:46] 系统运行中 - 当前用户: 2, 当前chat_ids: 1
+[02:04:54] 系统运行中 - 当前用户: 2, 当前chat_ids: 1
+=== 签到调度器运行 ===
+当前时间(北京时间): 02:04
+用户数量: 2
+用户 1: Token=1072_27phBMQqF1tTuiUN, Time=01:55, Random=false
+固定时间签到: user=1072_27phBMQqF1tTuiUN, time=01:55, split parts=[01 55]
+检查用户 1072_27phBMQqF1tTuiUN: 计划时间=01:55, 当前时间=02:04
+用户 2: Token=4968_unXmpyhUC3oPVpHa, Time=00:00, Random=true
+随机签到: user=4968_unXmpyhUC3oPVpHa, 随机时间=01:59, 当前时间=02:04
+[02:04:56] 系统运行中 - 当前用户: 2, 当前chat_ids: 1
+[02:05:04] 系统运行中 - 当前用户: 2, 当前chat_ids: 1
+[02:05:06] 系统运行中 - 当前用户: 2, 当前chat_ids: 1
+[02:05:14] 系统运行中 - 当前用户: 2, 当前chat_ids: 1
+[02:05:16] 系统运行中 - 当前用户: 2, 当前chat_ids: 1
+=== 签到调度器运行 ===
+当前时间(北京时间): 02:05
+用户数量: 2
+用户 1: Token=1072_27phBMQqF1tTuiUN, Time=01:55, Random=false
+固定时间签到: user=1072_27phBMQqF1tTuiUN, time=01:55, split parts=[01 55]
+检查用户 1072_27phBMQqF1tTuiUN: 计划时间=01:55, 当前时间=02:05
+用户 2: Token=4968_unXmpyhUC3oPVpHa, Time=00:00, Random=true
+随机签到: user=4968_unXmpyhUC3oPVpHa, 随机时间=01:59, 当前时间=02:05
+[02:05:24] 系统运行中 - 当前用户: 2, 当前chat_ids: 1
+[02:05:26] 系统运行中 - 当前用户: 2, 当前chat_ids: 1
+[02:05:34] 系统运行中 - 当前用户: 2, 当前chat_ids: 1
+[02:05:36] 系统运行中 - 当前用户: 2, 当前chat_ids: 1
+[02:05:44] 系统运行中 - 当前用户: 2, 当前chat_ids: 1
+[02:05:46] 系统运行中 - 当前用户: 2, 当前chat_ids: 1
+=== 签到调度器运行 ===
+[02:05:54] 系统运行中 - 当前用户: 2, 当前chat_ids: 1
+当前时间(北京时间): 02:05
+用户数量: 2
+用户 1: Token=1072_27phBMQqF1tTuiUN, Time=01:55, Random=false
+固定时间签到: user=1072_27phBMQqF1tTuiUN, time=01:55, split parts=[01 55]
+检查用户 1072_27phBMQqF1tTuiUN: 计划时间=01:55, 当前时间=02:05
+用户 2: Token=4968_unXmpyhUC3oPVpHa, Time=00:00, Random=true
+随机签到: user=4968_unXmpyhUC3oPVpHa, 随机时间=01:59, 当前时间=02:05
+[02:05:56] 系统运行中 - 当前用户: 2, 当前chat_ids: 1
+[02:06:04] 系统运行中 - 当前用户: 2, 当前chat_ids: 1
+[02:06:06] 系统运行中 - 当前用户: 2, 当前chat_ids: 1
+[02:06:14] 系统运行中 - 当前用户: 2, 当前chat_ids: 1
+[02:06:16] 系统运行中 - 当前用户: 2, 当前chat_ids: 1
+=== 签到调度器运行 ===
+当前时间(北京时间): 02:06
+用户数量: 2
+用户 1: Token=1072_27phBMQqF1tTuiUN, Time=01:55, Random=false
+固定时间签到: user=1072_27phBMQqF1tTuiUN, time=01:55, split parts=[01 55]
+检查用户 1072_27phBMQqF1tTuiUN: 计划时间=01:55, 当前时间=02:06
+用户 2: Token=4968_unXmpyhUC3oPVpHa, Time=00:00, Random=true
+随机签到: user=4968_unXmpyhUC3oPVpHa, 随机时间=01:59, 当前时间=02:06
+[02:06:24] 系统运行中 - 当前用户: 2, 当前chat_ids: 1
+[02:06:26] 系统运行中 - 当前用户: 2, 当前chat_ids: 1
+[02:06:34] 系统运行中 - 当前用户: 2, 当前chat_ids: 1
+[02:06:36] 系统运行中 - 当前用户: 2, 当前chat_ids: 1
+[02:06:44] 系统运行中 - 当前用户: 2, 当前chat_ids: 1
+[02:06:46] 系统运行中 - 当前用户: 2, 当前chat_ids: 1
