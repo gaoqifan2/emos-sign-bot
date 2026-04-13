@@ -259,6 +259,22 @@ func loadData() {
 	if storage.ChatIds != nil {
 		chatIds = storage.ChatIds
 	}
+	
+	// 重置所有随机签到用户的随机时间，以便在程序启动时重新生成
+	resetCount := 0
+	for i, user := range users {
+		if user.Random {
+			users[i].RandomTime = ""
+			resetCount++
+		}
+	}
+	
+	// 只有当有用户数据并且重置了随机时间时，才保存数据
+	if len(users) > 0 && resetCount > 0 {
+		saveData()
+		printlnUTF8(fmt.Sprintf("已重置 %d 个随机签到用户的随机时间，将在启动后重新生成", resetCount))
+	}
+	
 	printlnUTF8(fmt.Sprintf("成功加载数据: %d 个用户，%d 个聊天ID", len(users), len(chatIds)))
 }
 
@@ -701,8 +717,12 @@ func handleAddCommand(chatID int64, text string) {
 	
 	// 保存数据
 	saveData()
-
-	sendTelegramMessage(chatID, "用户添加成功!")
+	
+	// 发送成功消息
+	sendTelegramMessage(chatID, "用户添加成功！")
+	
+	// 立即检查新添加的用户是否需要签到
+	go checkinUsers()
 }
 
 // 处理删除用户命令

@@ -1,15 +1,15 @@
-日志文件初始化 - 2026-04-14T02:16:38+08:00
+日志文件初始化 - 2026-04-14T02:26:03+08:00
 成功加载北京时间时区 (Asia/Shanghai)
 使用配置的代理: http://127.0.0.1:7897
 测试代理连接...
 代理测试成功! 状态码: 200
 网络设置完成: 使用IPv4和代理支持
-成功加载数据: 2 个用户，1 个聊天ID
+成功加载数据: 0 个用户，1 个聊天ID
 测试日志写入功能
 这是一条中文测试消息
 This is an English test message
 === 自动签到系统 (Go版本) ===
-启动时间: 2026-04-14T02:16:39+08:00
+启动时间: 2026-04-14T02:26:03+08:00
 服务器运行在: http://localhost:3001
 API接口:
   POST /api/register - 注册用户 (token, time, random)
@@ -17,14 +17,42 @@ API接口:
   GET /api/users - 获取用户列表
   POST /webhook - Telegram Bot webhook
 系统启动成功，等待命令...
-已加载 2 个用户，1 个聊天ID
-Telegram轮询已启用
+已加载 0 个用户，1 个聊天ID
 开始Telegram轮询...
+Telegram轮询已启用
 === 签到调度器运行 ===
-当前时间(北京时间): 02:16
-用户数量: 2
-用户 1: Token=1072_27phBMQqF1tTuiUN, Time=00:00, Random=true
-随机签到: user=1072_27phBMQqF1tTuiUN, 随机时间=02:12, 当前时间=02:16
-用户 2: Token=4968_unXmpyhUC3oPVpHa, Time=00:00, Random=true
-随机签到: user=4968_unXmpyhUC3oPVpHa, 随机时间=01:59, 当前时间=02:16
-[02:16:49] 系统运行中 - 当前用户: 2, 当前chat_ids: 1
+当前时间(北京时间): 02:26
+用户数量: 0
+[02:26:13] 系统运行中 - 当前用户: 0, 当前chat_ids: 1
+存储chat_id: 8230046662
+=== handleAddCommand called ===
+Full text: '/add 1047_ow2NHeo3HyzDSxvl 00:00 random f1ne'
+Text length: 44
+Split parts: [/add 1047_ow2NHeo3HyzDSxvl 00:00 random f1ne]
+Parts count: 5
+Part 0: '/add' (empty: false)
+Part 1: '1047_ow2NHeo3HyzDSxvl' (empty: false)
+Part 2: '00:00' (empty: false)
+Part 3: 'random' (empty: false)
+Part 4: 'f1ne' (empty: false)
+Filtered parts: [/add 1047_ow2NHeo3HyzDSxvl 00:00 random f1ne]
+Filtered parts count: 5
+Parsed token: '1047_ow2NHeo3HyzDSxvl'
+Parsed time: '00:00'
+Parsed random: true
+Parsed remark: 'f1ne'
+生成随机时间: 05:22
+添加新用户: 1047_ow2NHeo3HyzDSxvl, 备注: f1ne
+开始保存数据: 1 个用户，1 个聊天ID
+序列化成功，数据长度: 214 字节
+成功保存数据到 data.json: 1 个用户，1 个聊天ID
+发送消息到Telegram: 8230046662, 用户添加成功！
+=== 签到调度器运行 ===
+当前时间(北京时间): 02:26
+用户数量: 1
+用户 1: Token=1047_ow2NHeo3HyzDSxvl, Time=00:00, Random=true
+随机签到: user=1047_ow2NHeo3HyzDSxvl, 随机时间=05:22, 当前时间=02:26
+[02:26:23] 系统运行中 - 当前用户: 1, 当前chat_ids: 1
+[02:26:33] 系统运行中 - 当前用户: 1, 当前chat_ids: 1
+[02:26:43] 系统运行中 - 当前用户: 1, 当前chat_ids: 1
+[02:26:53] 系统运行中 - 当前用户: 1, 当前chat_ids: 1
