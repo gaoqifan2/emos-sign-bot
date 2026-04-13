@@ -2,9 +2,9 @@
   "users": [
     {
       "token": "1072_27phBMQqF1tTuiUN",
-      "time": "01:55",
-      "random": false,
-      "random_time": "",
+      "time": "00:00",
+      "random": true,
+      "random_time": "02:12",
       "remark": "田曦薇"
     },
     {

@@ -836,6 +836,9 @@ func sendTelegramMessage(chatID int64, text string) {
 
 // 签到调度器
 func checkinScheduler() {
+	// 启动时立即执行一次
+	checkinUsers()
+	
 	ticker := time.NewTicker(1 * time.Minute)
 	defer ticker.Stop()
 
@@ -911,6 +914,7 @@ func checkinUsers() {
 				
 				user.RandomTime = fmt.Sprintf("%02d:%02d", randomHour, randomMinute)
 				needUpdate = true
+				printlnUTF8(fmt.Sprintf("生成随机时间: %s", user.RandomTime))
 			} else {
 				// 使用已生成的随机时间
 				parts := strings.Split(user.RandomTime, ":")
