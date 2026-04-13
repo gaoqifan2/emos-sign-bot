@@ -542,15 +542,60 @@ func handleAddCommand(chatID int64, text string) {
 		}
 	}
 
+	// 生成随机时间（如果是随机签到）
+	randomTime := ""
+	if random {
+		// 生成当前时间之后的随机时间
+		now := time.Now()
+		currentHour := now.Hour()
+		currentMinute := now.Minute()
+		
+		// 生成当前小时或之后的小时
+		randomHour := currentHour + rand.Intn(24 - currentHour)
+		if randomHour >= 24 {
+			randomHour = 23
+		}
+		
+		// 如果是当前小时，生成当前分钟之后的分钟
+		if randomHour == currentHour {
+			randomMinute := currentMinute + 1 + rand.Intn(60 - currentMinute - 1)
+			if randomMinute >= 60 {
+				randomMinute = 59
+			}
+			randomTime = fmt.Sprintf("%02d:%02d", randomHour, randomMinute)
+		} else {
+			// 其他小时，生成任意分钟
+			randomMinute := rand.Intn(60)
+			randomTime = fmt.Sprintf("%02d:%02d", randomHour, randomMinute)
+		}
+		fmt.Printf("生成随机时间: %s\n", randomTime)
+	}
+
 	if !found {
 		// 添加新用户
 		users = append(users, User{
-			Token:  token,
-			Time:   timeStr,
-			Random: random,
-			Remark: remark,
+			Token:      token,
+			Time:       timeStr,
+			Random:     random,
+			RandomTime: randomTime,
+			Remark:     remark,
 		})
 		fmt.Printf("添加新用户: %s, 备注: %s\n", token, remark)
+	} else {
+		// 更新现有用户
+		for i, user := range users {
+			if user.Token == token {
+				users[i] = User{
+					Token:      token,
+					Time:       timeStr,
+					Random:     random,
+					RandomTime: randomTime,
+					Remark:     remark,
+				}
+				break
+			}
+		}
+		fmt.Printf("更新用户: %s, 备注: %s\n", token, remark)
 	}
 	
 	// 保存数据
@@ -644,6 +689,16 @@ func handleHelpCommand(chatID int64) {
 
 // 截断token
 func truncateToken(token string) string {
+	// 只显示前面的数字加_后面的两个字符串，其他以*******显示
+	parts := strings.Split(token, "_")
+	if len(parts) >= 2 {
+		prefix := parts[0]
+		suffix := parts[1]
+		if len(suffix) >= 2 {
+			return prefix + "_" + suffix[:2] + "*******"
+		}
+	}
+	// 如果格式不符合预期，返回前20个字符
 	if len(token) > 20 {
 		return token[:20]
 	}
