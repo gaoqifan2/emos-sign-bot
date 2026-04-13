@@ -1,0 +1,23 @@
+日志文件初始化 - 2026-04-14T02:01:53+08:00
+成功加载北京时间时区 (Asia/Shanghai)
+使用配置的代理: http://127.0.0.1:7897
+测试代理连接...
+代理测试成功! 状态码: 200
+网络设置完成: 使用IPv4和代理支持
+成功加载数据: 2 个用户，1 个聊天ID
+测试日志写入功能
+这是一条中文测试消息
+This is an English test message
+=== 自动签到系统 (Go版本) ===
+启动时间: 2026-04-14T02:01:54+08:00
+服务器运行在: http://localhost:3001
+API接口:
+  POST /api/register - 注册用户 (token, time, random)
+  POST /api/remove - 删除用户 (token)
+  GET /api/users - 获取用户列表
+  POST /webhook - Telegram Bot webhook
+系统启动成功，等待命令...
+已加载 2 个用户，1 个聊天ID
+开始Telegram轮询...
+Telegram轮询已启用
+[02:02:04] 系统运行中 - 当前用户: 2, 当前chat_ids: 1
