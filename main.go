@@ -897,7 +897,7 @@ func checkinUsers() {
 	// 如果是每天的00:00，重置所有用户的随机时间
 	if currentHour == 0 && currentMinute == 0 {
 		for i, user := range users {
-			if user.Random && user.RandomTime == "checked" {
+			if user.Random {
 				users[i].RandomTime = ""
 			}
 		}
