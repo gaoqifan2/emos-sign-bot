@@ -831,23 +831,20 @@ func handleWaitTime(chatID int64, text string, data map[string]string) {
 	stateMutex.Unlock()
 
 	// 发送提示消息
-	sendTelegramMessage(chatID, "请输入备注信息(如不需要备注，输入0):\n输入0取消")
+	sendTelegramMessage(chatID, "请输入备注信息(如不需要备注，输入0):")
 }
 
 // 处理等待备注状态
 func handleWaitRemark(chatID int64, text string, data map[string]string) {
-	// 检查是否输入0退出
+	// 检查是否输入0表示不需要备注
+	var remark string
 	if text == "0" {
-		// 清除用户状态
-		stateMutex.Lock()
-		delete(userStates, chatID)
-		stateMutex.Unlock()
-		sendTelegramMessage(chatID, "已取消添加用户")
-		return
+		// 输入0表示不需要备注
+		remark = ""
+	} else {
+		// 处理备注
+		remark = text
 	}
-
-	// 处理备注
-	remark := text
 
 	// 保存备注
 	data["remark"] = remark
@@ -1348,14 +1345,65 @@ func checkinScheduler() {
 	// 启动时立即执行一次
 	checkinUsers()
 
-	// 改为每秒检查一次，实现秒级签到
-	ticker := time.NewTicker(1 * time.Second)
+	// 初始使用分钟级检查
+	ticker := time.NewTicker(1 * time.Minute)
 	defer ticker.Stop()
 
 	for {
 		<-ticker.C
+		// 检查是否需要切换到秒级检查
+		if needSecondLevelCheck() {
+			// 切换到秒级检查
+			ticker.Reset(1 * time.Second)
+			printlnUTF8("切换到秒级检查模式")
+		} else {
+			// 切换到分钟级检查
+			ticker.Reset(1 * time.Minute)
+			printlnUTF8("切换到分钟级检查模式")
+		}
 		checkinUsers()
 	}
+}
+
+// 检查是否需要秒级检查
+func needSecondLevelCheck() bool {
+	usersMutex.Lock()
+	defer usersMutex.Unlock()
+
+	now := time.Now().In(beijingLoc)
+	currentHour := now.Hour()
+	currentMinute := now.Minute()
+
+	// 检查是否有用户的签到时间在接下来的10分钟内
+	for _, user := range users {
+		var targetHour, targetMinute int
+		var targetTime string
+
+		if user.Random && user.RandomTime != "" && user.RandomTime != "checked" {
+			targetTime = user.RandomTime
+		} else {
+			targetTime = user.Time
+		}
+
+		parts := strings.Split(targetTime, ":")
+		if len(parts) >= 2 {
+			targetHour, _ = strconv.Atoi(parts[0])
+			targetMinute, _ = strconv.Atoi(parts[1])
+
+			// 计算时间差（分钟）
+			timeDiff := (targetHour*60 + targetMinute) - (currentHour*60 + currentMinute)
+			if timeDiff < 0 {
+				timeDiff += 24 * 60 // 跨天
+			}
+
+			// 如果在10分钟内，需要秒级检查
+			if timeDiff <= 10 {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 // 检查用户签到
