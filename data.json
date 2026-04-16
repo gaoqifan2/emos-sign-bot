@@ -3,8 +3,8 @@
     {
       "token": "1047_ow2NHeo3HyzDSxvl",
       "time": "00:00",
-      "random": true,
-      "random_time": "13:59",
+      "random": false,
+      "random_time": "",
       "remark": "f1ne",
       "username": "f1ne"
     },
@@ -12,9 +12,17 @@
       "token": "4968_unXmpyhUC3oPVpHa",
       "time": "00:00",
       "random": true,
-      "random_time": "23:30",
+      "random_time": "19:03:10",
       "remark": "f1bb",
       "username": "f1negege"
+    },
+    {
+      "token": "1072_27phBMQqF1tTuiUN",
+      "time": "00:00",
+      "random": true,
+      "random_time": "23:34:33",
+      "remark": "田曦薇",
+      "username": "f1neboss"
     }
   ],
   "chat_ids": {

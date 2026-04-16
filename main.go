@@ -63,7 +63,30 @@ var (
 	chatIds    = make(map[int64]bool)
 	usersMutex sync.Mutex
 	beijingLoc *time.Location // 北京时间时区
+	// 用户状态管理
+	userStates = make(map[int64]UserState)
+	stateMutex sync.Mutex
 )
+
+// 用户状态类型
+type StateType string
+
+const (
+	StateIdle          StateType = "idle"
+	StateWaitToken     StateType = "wait_token"
+	StateWaitMode      StateType = "wait_mode"
+	StateWaitTime      StateType = "wait_time"
+	StateWaitRemark    StateType = "wait_remark"
+	StateWaitRemoveOpt StateType = "wait_remove_opt"
+	StateWaitRemoveUser StateType = "wait_remove_user"
+)
+
+// 用户状态
+type UserState struct {
+	Type       StateType
+	Data       map[string]string
+	CreateTime time.Time
+}
 
 // 初始化日志文件
 func initLog() {
@@ -551,11 +574,24 @@ func handleWebhook(w http.ResponseWriter, r *http.Request) {
 		chatIds[chatID] = true
 		printlnUTF8(fmt.Sprintf("存储chat_id: %d", chatID))
 
+		// 检查用户状态
+		stateMutex.Lock()
+		state, exists := userStates[chatID]
+		stateMutex.Unlock()
+
+		// 如果用户有状态，处理状态相关的输入
+		if exists {
+			handleUserState(chatID, text, state)
+			return
+		}
+
 		// 处理命令
 		if strings.HasPrefix(text, "/add") {
-			handleAddCommand(chatID, text)
+			// 开始一步一步添加用户
+			startAddUser(chatID)
 		} else if strings.HasPrefix(text, "/remove") {
-			handleRemoveCommand(chatID, text)
+			// 开始一步一步删除用户
+			startRemoveUser(chatID)
 		} else if text == "/list" {
 			handleListCommand(chatID)
 		} else if text == "/help" {
@@ -567,6 +603,267 @@ func handleWebhook(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("OK"))
+}
+
+// 开始添加用户流程
+func startAddUser(chatID int64) {
+	// 设置用户状态为等待输入token
+	stateMutex.Lock()
+	userStates[chatID] = UserState{
+		Type:       StateWaitToken,
+		Data:       make(map[string]string),
+		CreateTime: time.Now(),
+	}
+	stateMutex.Unlock()
+
+	// 发送提示消息
+	sendTelegramMessage(chatID, "请输入签到用的Bearer Token:")
+}
+
+// 开始删除用户流程
+func startRemoveUser(chatID int64) {
+	// 设置用户状态为等待选择删除方式
+	stateMutex.Lock()
+	userStates[chatID] = UserState{
+		Type:       StateWaitRemoveOpt,
+		Data:       make(map[string]string),
+		CreateTime: time.Now(),
+	}
+	stateMutex.Unlock()
+
+	// 发送提示消息
+	sendTelegramMessage(chatID, "请选择删除方式:\n1. 根据Token删除\n2. 根据用户名删除")
+}
+
+// 处理用户状态
+func handleUserState(chatID int64, text string, state UserState) {
+	switch state.Type {
+	case StateWaitToken:
+		handleWaitToken(chatID, text)
+	case StateWaitMode:
+		handleWaitMode(chatID, text, state.Data)
+	case StateWaitTime:
+		handleWaitTime(chatID, text, state.Data)
+	case StateWaitRemark:
+		handleWaitRemark(chatID, text, state.Data)
+	case StateWaitRemoveOpt:
+		handleWaitRemoveOpt(chatID, text)
+	case StateWaitRemoveUser:
+		handleWaitRemoveUser(chatID, text, state.Data)
+	}
+}
+
+// 处理等待token状态
+func handleWaitToken(chatID int64, text string) {
+	// 检查token是否为空
+	if strings.TrimSpace(text) == "" {
+		sendTelegramMessage(chatID, "Token不能为空，请重新输入:")
+		return
+	}
+
+	// 尝试获取用户信息，检查token是否有效
+	userInfo, err := getUserInfo(text)
+	if err != nil {
+		sendTelegramMessage(chatID, "获取用户信息失败，Token无效，请重新输入:")
+		return
+	}
+
+	// 保存token和username并进入下一步
+	stateMutex.Lock()
+	userStates[chatID] = UserState{
+		Type: StateWaitMode,
+		Data: map[string]string{
+			"token":     text,
+			"username": userInfo.Username,
+		},
+		CreateTime: time.Now(),
+	}
+	stateMutex.Unlock()
+
+	// 发送提示消息
+	sendTelegramMessage(chatID, "请选择签到模式:\n1. 固定时间签到\n2. 随机时间签到")
+}
+
+// 处理等待模式状态
+func handleWaitMode(chatID int64, text string, data map[string]string) {
+	// 检查输入是否有效
+	if text != "1" && text != "2" {
+		sendTelegramMessage(chatID, "请输入正确的选项(1或2):")
+		return
+	}
+
+	// 保存模式并进入下一步
+	random := text == "2"
+	data["random"] = fmt.Sprintf("%v", random)
+
+	stateMutex.Lock()
+	userStates[chatID] = UserState{
+		Type:       StateWaitTime,
+		Data:       data,
+		CreateTime: time.Now(),
+	}
+	stateMutex.Unlock()
+
+	// 发送提示消息
+	if random {
+		sendTelegramMessage(chatID, "已选择随机时间签到，请输入一个参考时间(格式: HH:MM:SS，例如: 08:30:00):")
+	} else {
+		sendTelegramMessage(chatID, "请输入固定签到时间(格式: HH:MM:SS，例如: 08:30:00):")
+	}
+}
+
+// 处理等待时间状态
+func handleWaitTime(chatID int64, text string, data map[string]string) {
+	// 替换中文冒号为英文冒号
+	timeStr := strings.ReplaceAll(text, "：", ":")
+
+	// 验证时间格式
+	parts := strings.Split(timeStr, ":")
+	if len(parts) < 2 {
+		sendTelegramMessage(chatID, "时间格式错误，请使用 HH:MM:SS 格式:")
+		return
+	}
+
+	// 验证小时
+	hour, err := strconv.Atoi(parts[0])
+	if err != nil || hour < 0 || hour > 23 {
+		sendTelegramMessage(chatID, "小时格式错误，应为 00-23:")
+		return
+	}
+
+	// 验证分钟
+	minute, err := strconv.Atoi(parts[1])
+	if err != nil || minute < 0 || minute > 59 {
+		sendTelegramMessage(chatID, "分钟格式错误，应为 00-59:")
+		return
+	}
+
+	// 验证秒（如果有）
+	if len(parts) == 3 {
+		second, err := strconv.Atoi(parts[2])
+		if err != nil || second < 0 || second > 59 {
+			sendTelegramMessage(chatID, "秒格式错误，应为 00-59:")
+			return
+		}
+	}
+
+	// 保存时间并进入下一步
+	data["time"] = timeStr
+
+	stateMutex.Lock()
+	userStates[chatID] = UserState{
+		Type:       StateWaitRemark,
+		Data:       data,
+		CreateTime: time.Now(),
+	}
+	stateMutex.Unlock()
+
+	// 发送提示消息
+	sendTelegramMessage(chatID, "请输入备注信息(如不需要备注，输入0):")
+}
+
+// 处理等待备注状态
+func handleWaitRemark(chatID int64, text string, data map[string]string) {
+	// 处理备注
+	remark := text
+	if text == "0" {
+		remark = ""
+	}
+
+	// 保存备注
+	data["remark"] = remark
+
+	// 提取数据
+	token := data["token"]
+	timeStr := data["time"]
+	random := data["random"] == "true"
+
+	// 处理random参数
+	randomParam := ""
+	if random {
+		randomParam = "random"
+	}
+
+	// 调用添加用户函数
+	handleAddCommand(chatID, fmt.Sprintf("/add %s %s %s %s", token, timeStr, randomParam, remark))
+
+	// 清除用户状态
+	stateMutex.Lock()
+	delete(userStates, chatID)
+	stateMutex.Unlock()
+}
+
+// 处理等待删除方式状态
+func handleWaitRemoveOpt(chatID int64, text string) {
+	// 检查输入是否有效
+	if text != "1" && text != "2" {
+		sendTelegramMessage(chatID, "请输入正确的选项(1或2):")
+		return
+	}
+
+	// 保存删除方式并进入下一步
+	stateMutex.Lock()
+	userStates[chatID] = UserState{
+		Type: StateWaitRemoveUser,
+		Data: map[string]string{
+			"removeOpt": text,
+		},
+		CreateTime: time.Now(),
+	}
+	stateMutex.Unlock()
+
+	// 发送提示消息
+	if text == "1" {
+		sendTelegramMessage(chatID, "请输入要删除的用户Token:")
+	} else {
+		sendTelegramMessage(chatID, "请输入要删除的用户名:")
+	}
+}
+
+// 处理等待删除用户状态
+func handleWaitRemoveUser(chatID int64, text string, data map[string]string) {
+	// 提取删除方式
+	removeOpt := data["removeOpt"]
+
+	// 调用删除用户函数
+	if removeOpt == "1" {
+		// 根据Token删除
+		handleRemoveCommand(chatID, fmt.Sprintf("/remove %s", text))
+	} else {
+		// 根据用户名删除
+		handleRemoveByUsername(chatID, text)
+	}
+
+	// 清除用户状态
+	stateMutex.Lock()
+	delete(userStates, chatID)
+	stateMutex.Unlock()
+}
+
+// 根据用户名删除用户
+func handleRemoveByUsername(chatID int64, username string) {
+	usersMutex.Lock()
+	defer usersMutex.Unlock()
+
+	// 查找并删除用户
+	found := false
+	for i, user := range users {
+		if user.Username == username {
+			// 删除用户
+			users = append(users[:i], users[i+1:]...)
+			found = true
+			printlnUTF8(fmt.Sprintf("删除用户: %s", username))
+			break
+		}
+	}
+
+	if found {
+		// 保存数据
+		saveData()
+		sendTelegramMessage(chatID, "用户删除成功!")
+	} else {
+		sendTelegramMessage(chatID, "用户不存在!")
+	}
 }
 
 // 处理添加用户命令
@@ -648,38 +945,54 @@ func handleAddCommand(chatID int64, text string) {
 				minuteRange := 59 - minute
 				if minuteRange > 0 {
 					randomMinute := minute + 1 + rand.Intn(minuteRange)
-					randomTime = fmt.Sprintf("%02d:%02d", randomHour, randomMinute)
+					randomSecond := rand.Intn(60)
+					randomTime = fmt.Sprintf("%02d:%02d:%02d", randomHour, randomMinute, randomSecond)
 				} else {
-					// 当前时间是23:59，只能选择23:59
-					randomTime = "23:59"
+					// 当前时间是23:59，只能选择23:59:59
+					randomTime = "23:59:59"
 				}
 			} else {
-				// 其他小时，生成任意分钟
+				// 其他小时，生成任意分钟和秒
 				randomMinute := rand.Intn(60)
-				randomTime = fmt.Sprintf("%02d:%02d", randomHour, randomMinute)
+				randomSecond := rand.Intn(60)
+				randomTime = fmt.Sprintf("%02d:%02d:%02d", randomHour, randomMinute, randomSecond)
 			}
 		} else {
 			// 当前时间是23点，只能选择23点
 			minuteRange := 59 - minute
 			if minuteRange > 0 {
 				randomMinute := minute + 1 + rand.Intn(minuteRange)
-				randomTime = fmt.Sprintf("23:%02d", randomMinute)
+				randomSecond := rand.Intn(60)
+				randomTime = fmt.Sprintf("23:%02d:%02d", randomMinute, randomSecond)
 			} else {
-				// 当前时间是23:59，只能选择23:59
-				randomTime = "23:59"
+				// 当前时间是23:59，只能选择23:59:59
+				randomTime = "23:59:59"
 			}
 		}
 		printlnUTF8(fmt.Sprintf("生成随机时间: %s", randomTime))
 	}
 	
-	// 获取用户信息
+	// 获取用户信息（优先使用状态中保存的username）
 	username := ""
-	userInfo, err := getUserInfo(token)
-	if err != nil {
-		printlnUTF8(fmt.Sprintf("获取用户信息失败: %v，使用空用户名", err))
-	} else {
-		username = userInfo.Username
-		printlnUTF8(fmt.Sprintf("获取用户信息成功: %s", username))
+	// 检查是否在状态中保存了username
+	stateMutex.Lock()
+	if state, exists := userStates[chatID]; exists && state.Data != nil {
+		if savedUsername, ok := state.Data["username"]; ok {
+			username = savedUsername
+			printlnUTF8(fmt.Sprintf("使用状态中保存的用户名: %s", username))
+		}
+	}
+	stateMutex.Unlock()
+	
+	// 如果没有保存的username，尝试获取
+	if username == "" {
+		userInfo, err := getUserInfo(token)
+		if err != nil {
+			printlnUTF8(fmt.Sprintf("获取用户信息失败: %v，使用空用户名", err))
+		} else {
+			username = userInfo.Username
+			printlnUTF8(fmt.Sprintf("获取用户信息成功: %s", username))
+		}
 	}
 
 	// 检查是否已存在
@@ -893,9 +1206,10 @@ func checkinUsers() {
 	now := time.Now().In(beijingLoc)
 	currentHour := now.Hour()
 	currentMinute := now.Minute()
+	currentSecond := now.Second()
 	
-	// 如果是每天的00:00，重置所有用户的随机时间
-	if currentHour == 0 && currentMinute == 0 {
+	// 如果是每天的00:00:00，重置所有用户的随机时间
+	if currentHour == 0 && currentMinute == 0 && currentSecond == 0 {
 		for i, user := range users {
 			if user.Random {
 				users[i].RandomTime = ""
@@ -911,7 +1225,7 @@ func checkinUsers() {
 
 	// 调试日志：打印当前时间
 	printlnUTF8("=== 签到调度器运行 ===")
-	printlnUTF8(fmt.Sprintf("当前时间(北京时间): %02d:%02d", currentHour, currentMinute))
+	printlnUTF8(fmt.Sprintf("当前时间(北京时间): %02d:%02d:%02d", currentHour, currentMinute, currentSecond))
 	printlnUTF8(fmt.Sprintf("用户数量: %d", len(userCopy)))
 
 	for i, user := range userCopy {
@@ -923,6 +1237,7 @@ func checkinUsers() {
 			// 检查是否已经生成今天的随机时间
 			randomHour := 0
 			randomMinute := 0
+			randomSecond := 0
 			needUpdate := false
 			
 			if user.RandomTime == "" {
@@ -950,21 +1265,29 @@ func checkinUsers() {
 					randomMinute = rand.Intn(60)
 				}
 				
-				user.RandomTime = fmt.Sprintf("%02d:%02d", randomHour, randomMinute)
+				// 生成任意秒数
+				randomSecond = rand.Intn(60)
+				
+				user.RandomTime = fmt.Sprintf("%02d:%02d:%02d", randomHour, randomMinute, randomSecond)
 				needUpdate = true
 				printlnUTF8(fmt.Sprintf("生成随机时间: %s", user.RandomTime))
 			} else {
 				// 使用已生成的随机时间
 				parts := strings.Split(user.RandomTime, ":")
-				if len(parts) == 2 {
+				if len(parts) >= 2 {
 					randomHour, _ = strconv.Atoi(parts[0])
 					randomMinute, _ = strconv.Atoi(parts[1])
+					if len(parts) == 3 {
+						randomSecond, _ = strconv.Atoi(parts[2])
+					} else {
+						randomSecond = 0
+					}
 				}
 			}
 			
-			printlnUTF8(fmt.Sprintf("随机签到: user=%s, 随机时间=%s, 当前时间=%02d:%02d", truncateToken(user.Token), user.RandomTime, currentHour, currentMinute))
+			printlnUTF8(fmt.Sprintf("随机签到: user=%s, 随机时间=%s, 当前时间=%02d:%02d:%02d", truncateToken(user.Token), user.RandomTime, currentHour, currentMinute, currentSecond))
 			
-			if randomHour == currentHour && randomMinute == currentMinute {
+			if randomHour == currentHour && randomMinute == currentMinute && randomSecond == currentSecond {
 				printlnUTF8(fmt.Sprintf("开始随机签到用户: %s", truncateToken(user.Token)))
 				go performCheckin(user.Token)
 				// 签到后清空随机时间，并且当天不再重新生成
@@ -993,7 +1316,7 @@ func checkinUsers() {
 			// 固定时间签到
 			parts := strings.Split(user.Time, ":")
 			printlnUTF8(fmt.Sprintf("固定时间签到: user=%s, time=%s, split parts=%v", truncateToken(user.Token), user.Time, parts))
-			if len(parts) == 2 {
+			if len(parts) >= 2 {
 				hour, err := strconv.Atoi(parts[0])
 				if err != nil {
 					printlnUTF8(fmt.Sprintf("用户 %s 的小时格式无效: %v", truncateToken(user.Token), err))
@@ -1004,8 +1327,12 @@ func checkinUsers() {
 					printlnUTF8(fmt.Sprintf("用户 %s 的分钟格式无效: %v", truncateToken(user.Token), err))
 					continue
 				}
-				printlnUTF8(fmt.Sprintf("检查用户 %s: 计划时间=%02d:%02d, 当前时间=%02d:%02d", truncateToken(user.Token), hour, minute, currentHour, currentMinute))
-				if hour == currentHour && minute == currentMinute {
+				second := 0
+				if len(parts) == 3 {
+					second, _ = strconv.Atoi(parts[2])
+				}
+				printlnUTF8(fmt.Sprintf("检查用户 %s: 计划时间=%02d:%02d:%02d, 当前时间=%02d:%02d:%02d", truncateToken(user.Token), hour, minute, second, currentHour, currentMinute, currentSecond))
+				if hour == currentHour && minute == currentMinute && second == currentSecond {
 					printlnUTF8(fmt.Sprintf("开始签到用户: %s", truncateToken(user.Token)))
 					go performCheckin(user.Token)
 				}
