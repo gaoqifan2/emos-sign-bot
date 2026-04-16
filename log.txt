@@ -1,4 +1,4 @@
-日志文件初始化 - 2026-04-16T21:18:31+08:00
+日志文件初始化 - 2026-04-16T21:48:41+08:00
 成功加载北京时间时区 (Asia/Shanghai)
 使用配置的代理: http://127.0.0.1:7897
 测试代理连接...
@@ -13,7 +13,7 @@
 这是一条中文测试消息
 This is an English test message
 === 自动签到系统 (Go版本) ===
-启动时间: 2026-04-16T21:18:34+08:00
+启动时间: 2026-04-16T21:48:44+08:00
 服务器运行在: http://localhost:3001
 API接口:
   POST /api/register - 注册用户 (token, time, random)
@@ -24,48 +24,305 @@ API接口:
 已加载 7 个用户，10 个聊天ID
 Telegram轮询已启用
 Telegram轮询线程已启动
-启动Telegram轮询...
 === 签到调度器运行 ===
+启动Telegram轮询...
+当前时间(北京时间): 21:48:44
 开始Telegram轮询...
-当前时间(北京时间): 21:18:34
 用户数量: 7
 获取Telegram更新: https://api.telegram.org/bot8754758110:AAGscR-51usqNuB6hkEld7ovO_eQm5w-zCs/getUpdates?offset=0&timeout=30
 用户 1: Token=1047_ow*******, Time=00:00, Random=false
 发送Telegram请求...
 固定时间签到: user=1047_ow*******, time=00:00, split parts=[00 00]
-检查用户 1047_ow*******: 计划时间=00:00:00, 当前时间=21:18:34
+检查用户 1047_ow*******: 计划时间=00:00:00, 当前时间=21:48:44
 用户 2: Token=1072_27*******, Time=00:00, Random=true
-生成随机时间: 23:11:55
-随机签到: user=1072_27*******, 随机时间=23:11:55, 当前时间=21:18:34
+生成随机时间: 21:49:17
+随机签到: user=1072_27*******, 随机时间=21:49:17, 当前时间=21:48:44
 开始保存数据: 7 个用户，10 个聊天ID
 序列化成功，数据长度: 1535 字节
 成功保存数据到 data.json: 7 个用户，10 个聊天ID
 用户 3: Token=4968_un*******, Time=00:00, Random=true
-生成随机时间: 22:45:56
-随机签到: user=4968_un*******, 随机时间=22:45:56, 当前时间=21:18:34
+生成随机时间: 22:56:00
+随机签到: user=4968_un*******, 随机时间=22:56:00, 当前时间=21:48:44
 开始保存数据: 7 个用户，10 个聊天ID
 序列化成功，数据长度: 1543 字节
 成功保存数据到 data.json: 7 个用户，10 个聊天ID
 用户 4: Token=5778_Pn*******, Time=00:00, Random=false
 固定时间签到: user=5778_Pn*******, time=00:00, split parts=[00 00]
-检查用户 5778_Pn*******: 计划时间=00:00:00, 当前时间=21:18:34
+检查用户 5778_Pn*******: 计划时间=00:00:00, 当前时间=21:48:44
 用户 5: Token=3945_I4*******, Time=03:27, Random=true
-生成随机时间: 23:22:44
-随机签到: user=3945_I4*******, 随机时间=23:22:44, 当前时间=21:18:34
+生成随机时间: 22:40:49
+随机签到: user=3945_I4*******, 随机时间=22:40:49, 当前时间=21:48:44
 开始保存数据: 7 个用户，10 个聊天ID
 序列化成功，数据长度: 1551 字节
 成功保存数据到 data.json: 7 个用户，10 个聊天ID
 用户 6: Token=5693_Oe*******, Time=13:14, Random=false
 固定时间签到: user=5693_Oe*******, time=13:14, split parts=[13 14]
-检查用户 5693_Oe*******: 计划时间=13:14:00, 当前时间=21:18:34
+检查用户 5693_Oe*******: 计划时间=13:14:00, 当前时间=21:48:44
 用户 7: Token=5873_VY*******, Time=00:00, Random=false
 固定时间签到: user=5873_VY*******, time=00:00, split parts=[00 00]
-检查用户 5873_VY*******: 计划时间=00:00:00, 当前时间=21:18:34
-[21:18:44] 系统运行中 - 当前用户: 7, 当前chat_ids: 10
-[21:18:54] 系统运行中 - 当前用户: 7, 当前chat_ids: 10
+检查用户 5873_VY*******: 计划时间=00:00:00, 当前时间=21:48:44
+[21:48:54] 系统运行中 - 当前用户: 7, 当前chat_ids: 10
+[21:49:04] 系统运行中 - 当前用户: 7, 当前chat_ids: 10
+[21:49:14] 系统运行中 - 当前用户: 7, 当前chat_ids: 10
+获取更新失败: Get "https://api.telegram.org/bot8754758110:AAGscR-51usqNuB6hkEld7ovO_eQm5w-zCs/getUpdates?offset=0&timeout=30": context deadline exceeded
+获取Telegram更新: https://api.telegram.org/bot8754758110:AAGscR-51usqNuB6hkEld7ovO_eQm5w-zCs/getUpdates?offset=0&timeout=30
+发送Telegram请求...
+[21:49:24] 系统运行中 - 当前用户: 7, 当前chat_ids: 10
+[21:49:34] 系统运行中 - 当前用户: 7, 当前chat_ids: 10
+[21:49:44] 系统运行中 - 当前用户: 7, 当前chat_ids: 10
+=== 签到调度器运行 ===
+当前时间(北京时间): 21:49:44
+用户数量: 7
+用户 1: Token=1047_ow*******, Time=00:00, Random=false
+固定时间签到: user=1047_ow*******, time=00:00, split parts=[00 00]
+检查用户 1047_ow*******: 计划时间=00:00:00, 当前时间=21:49:44
+用户 2: Token=1072_27*******, Time=00:00, Random=true
+随机签到: user=1072_27*******, 随机时间=21:49:17, 当前时间=21:49:44
+用户 3: Token=4968_un*******, Time=00:00, Random=true
+随机签到: user=4968_un*******, 随机时间=22:56:00, 当前时间=21:49:44
+用户 4: Token=5778_Pn*******, Time=00:00, Random=false
+固定时间签到: user=5778_Pn*******, time=00:00, split parts=[00 00]
+检查用户 5778_Pn*******: 计划时间=00:00:00, 当前时间=21:49:44
+用户 5: Token=3945_I4*******, Time=03:27, Random=true
+随机签到: user=3945_I4*******, 随机时间=22:40:49, 当前时间=21:49:44
+用户 6: Token=5693_Oe*******, Time=13:14, Random=false
+固定时间签到: user=5693_Oe*******, time=13:14, split parts=[13 14]
+检查用户 5693_Oe*******: 计划时间=13:14:00, 当前时间=21:49:44
+用户 7: Token=5873_VY*******, Time=00:00, Random=false
+固定时间签到: user=5873_VY*******, time=00:00, split parts=[00 00]
+检查用户 5873_VY*******: 计划时间=00:00:00, 当前时间=21:49:44
+获取更新失败: Get "https://api.telegram.org/bot8754758110:AAGscR-51usqNuB6hkEld7ovO_eQm5w-zCs/getUpdates?offset=0&timeout=30": context deadline exceeded
+[21:49:54] 系统运行中 - 当前用户: 7, 当前chat_ids: 10
+获取Telegram更新: https://api.telegram.org/bot8754758110:AAGscR-51usqNuB6hkEld7ovO_eQm5w-zCs/getUpdates?offset=0&timeout=30
+发送Telegram请求...
+获取更新失败: Get "https://api.telegram.org/bot8754758110:AAGscR-51usqNuB6hkEld7ovO_eQm5w-zCs/getUpdates?offset=0&timeout=30": EOF
+[21:50:04] 系统运行中 - 当前用户: 7, 当前chat_ids: 10
+获取Telegram更新: https://api.telegram.org/bot8754758110:AAGscR-51usqNuB6hkEld7ovO_eQm5w-zCs/getUpdates?offset=0&timeout=30
+发送Telegram请求...
+[21:50:14] 系统运行中 - 当前用户: 7, 当前chat_ids: 10
+[21:50:24] 系统运行中 - 当前用户: 7, 当前chat_ids: 10
+[21:50:34] 系统运行中 - 当前用户: 7, 当前chat_ids: 10
+获取更新失败: Get "https://api.telegram.org/bot8754758110:AAGscR-51usqNuB6hkEld7ovO_eQm5w-zCs/getUpdates?offset=0&timeout=30": context deadline exceeded
+获取Telegram更新: https://api.telegram.org/bot8754758110:AAGscR-51usqNuB6hkEld7ovO_eQm5w-zCs/getUpdates?offset=0&timeout=30
+发送Telegram请求...
+[21:50:44] 系统运行中 - 当前用户: 7, 当前chat_ids: 10
+=== 签到调度器运行 ===
+当前时间(北京时间): 21:50:44
+用户数量: 7
+用户 1: Token=1047_ow*******, Time=00:00, Random=false
+固定时间签到: user=1047_ow*******, time=00:00, split parts=[00 00]
+检查用户 1047_ow*******: 计划时间=00:00:00, 当前时间=21:50:44
+用户 2: Token=1072_27*******, Time=00:00, Random=true
+随机签到: user=1072_27*******, 随机时间=21:49:17, 当前时间=21:50:44
+用户 3: Token=4968_un*******, Time=00:00, Random=true
+随机签到: user=4968_un*******, 随机时间=22:56:00, 当前时间=21:50:44
+用户 4: Token=5778_Pn*******, Time=00:00, Random=false
+固定时间签到: user=5778_Pn*******, time=00:00, split parts=[00 00]
+检查用户 5778_Pn*******: 计划时间=00:00:00, 当前时间=21:50:44
+用户 5: Token=3945_I4*******, Time=03:27, Random=true
+随机签到: user=3945_I4*******, 随机时间=22:40:49, 当前时间=21:50:44
+用户 6: Token=5693_Oe*******, Time=13:14, Random=false
+固定时间签到: user=5693_Oe*******, time=13:14, split parts=[13 14]
+检查用户 5693_Oe*******: 计划时间=13:14:00, 当前时间=21:50:44
+用户 7: Token=5873_VY*******, Time=00:00, Random=false
+固定时间签到: user=5873_VY*******, time=00:00, split parts=[00 00]
+检查用户 5873_VY*******: 计划时间=00:00:00, 当前时间=21:50:44
+[21:50:54] 系统运行中 - 当前用户: 7, 当前chat_ids: 10
+[21:51:04] 系统运行中 - 当前用户: 7, 当前chat_ids: 10
+获取更新失败: Get "https://api.telegram.org/bot8754758110:AAGscR-51usqNuB6hkEld7ovO_eQm5w-zCs/getUpdates?offset=0&timeout=30": context deadline exceeded
+[21:51:14] 系统运行中 - 当前用户: 7, 当前chat_ids: 10
+获取Telegram更新: https://api.telegram.org/bot8754758110:AAGscR-51usqNuB6hkEld7ovO_eQm5w-zCs/getUpdates?offset=0&timeout=30
+发送Telegram请求...
+[21:51:24] 系统运行中 - 当前用户: 7, 当前chat_ids: 10
+[21:51:34] 系统运行中 - 当前用户: 7, 当前chat_ids: 10
+[21:51:44] 系统运行中 - 当前用户: 7, 当前chat_ids: 10
+=== 签到调度器运行 ===
+当前时间(北京时间): 21:51:44
+获取更新失败: Get "https://api.telegram.org/bot8754758110:AAGscR-51usqNuB6hkEld7ovO_eQm5w-zCs/getUpdates?offset=0&timeout=30": context deadline exceeded
+用户数量: 7
+用户 1: Token=1047_ow*******, Time=00:00, Random=false
+固定时间签到: user=1047_ow*******, time=00:00, split parts=[00 00]
+检查用户 1047_ow*******: 计划时间=00:00:00, 当前时间=21:51:44
+用户 2: Token=1072_27*******, Time=00:00, Random=true
+随机签到: user=1072_27*******, 随机时间=21:49:17, 当前时间=21:51:44
+用户 3: Token=4968_un*******, Time=00:00, Random=true
+随机签到: user=4968_un*******, 随机时间=22:56:00, 当前时间=21:51:44
+用户 4: Token=5778_Pn*******, Time=00:00, Random=false
+固定时间签到: user=5778_Pn*******, time=00:00, split parts=[00 00]
+检查用户 5778_Pn*******: 计划时间=00:00:00, 当前时间=21:51:44
+用户 5: Token=3945_I4*******, Time=03:27, Random=true
+随机签到: user=3945_I4*******, 随机时间=22:40:49, 当前时间=21:51:44
+用户 6: Token=5693_Oe*******, Time=13:14, Random=false
+固定时间签到: user=5693_Oe*******, time=13:14, split parts=[13 14]
+检查用户 5693_Oe*******: 计划时间=13:14:00, 当前时间=21:51:44
+用户 7: Token=5873_VY*******, Time=00:00, Random=false
+固定时间签到: user=5873_VY*******, time=00:00, split parts=[00 00]
+检查用户 5873_VY*******: 计划时间=00:00:00, 当前时间=21:51:44
+获取Telegram更新: https://api.telegram.org/bot8754758110:AAGscR-51usqNuB6hkEld7ovO_eQm5w-zCs/getUpdates?offset=0&timeout=30
+发送Telegram请求...
+[21:51:54] 系统运行中 - 当前用户: 7, 当前chat_ids: 10
+[21:52:04] 系统运行中 - 当前用户: 7, 当前chat_ids: 10
+[21:52:14] 系统运行中 - 当前用户: 7, 当前chat_ids: 10
+获取更新失败: Get "https://api.telegram.org/bot8754758110:AAGscR-51usqNuB6hkEld7ovO_eQm5w-zCs/getUpdates?offset=0&timeout=30": context deadline exceeded
+[21:52:24] 系统运行中 - 当前用户: 7, 当前chat_ids: 10
+获取Telegram更新: https://api.telegram.org/bot8754758110:AAGscR-51usqNuB6hkEld7ovO_eQm5w-zCs/getUpdates?offset=0&timeout=30
+发送Telegram请求...
+[21:52:34] 系统运行中 - 当前用户: 7, 当前chat_ids: 10
+[21:52:44] 系统运行中 - 当前用户: 7, 当前chat_ids: 10
+=== 签到调度器运行 ===
+当前时间(北京时间): 21:52:44
+用户数量: 7
+用户 1: Token=1047_ow*******, Time=00:00, Random=false
+固定时间签到: user=1047_ow*******, time=00:00, split parts=[00 00]
+检查用户 1047_ow*******: 计划时间=00:00:00, 当前时间=21:52:44
+用户 2: Token=1072_27*******, Time=00:00, Random=true
+随机签到: user=1072_27*******, 随机时间=21:49:17, 当前时间=21:52:44
+用户 3: Token=4968_un*******, Time=00:00, Random=true
+随机签到: user=4968_un*******, 随机时间=22:56:00, 当前时间=21:52:44
+用户 4: Token=5778_Pn*******, Time=00:00, Random=false
+固定时间签到: user=5778_Pn*******, time=00:00, split parts=[00 00]
+检查用户 5778_Pn*******: 计划时间=00:00:00, 当前时间=21:52:44
+用户 5: Token=3945_I4*******, Time=03:27, Random=true
+随机签到: user=3945_I4*******, 随机时间=22:40:49, 当前时间=21:52:44
+用户 6: Token=5693_Oe*******, Time=13:14, Random=false
+固定时间签到: user=5693_Oe*******, time=13:14, split parts=[13 14]
+检查用户 5693_Oe*******: 计划时间=13:14:00, 当前时间=21:52:44
+用户 7: Token=5873_VY*******, Time=00:00, Random=false
+固定时间签到: user=5873_VY*******, time=00:00, split parts=[00 00]
+检查用户 5873_VY*******: 计划时间=00:00:00, 当前时间=21:52:44
+[21:52:54] 系统运行中 - 当前用户: 7, 当前chat_ids: 10
+获取更新失败: Get "https://api.telegram.org/bot8754758110:AAGscR-51usqNuB6hkEld7ovO_eQm5w-zCs/getUpdates?offset=0&timeout=30": context deadline exceeded
+获取Telegram更新: https://api.telegram.org/bot8754758110:AAGscR-51usqNuB6hkEld7ovO_eQm5w-zCs/getUpdates?offset=0&timeout=30
+发送Telegram请求...
+[21:53:04] 系统运行中 - 当前用户: 7, 当前chat_ids: 10
+[21:53:14] 系统运行中 - 当前用户: 7, 当前chat_ids: 10
+[21:53:24] 系统运行中 - 当前用户: 7, 当前chat_ids: 10
+获取更新失败: Get "https://api.telegram.org/bot8754758110:AAGscR-51usqNuB6hkEld7ovO_eQm5w-zCs/getUpdates?offset=0&timeout=30": context deadline exceeded
+[21:53:34] 系统运行中 - 当前用户: 7, 当前chat_ids: 10
+获取Telegram更新: https://api.telegram.org/bot8754758110:AAGscR-51usqNuB6hkEld7ovO_eQm5w-zCs/getUpdates?offset=0&timeout=30
+发送Telegram请求...
+[21:53:44] 系统运行中 - 当前用户: 7, 当前chat_ids: 10
+=== 签到调度器运行 ===
+当前时间(北京时间): 21:53:44
+用户数量: 7
+用户 1: Token=1047_ow*******, Time=00:00, Random=false
+固定时间签到: user=1047_ow*******, time=00:00, split parts=[00 00]
+检查用户 1047_ow*******: 计划时间=00:00:00, 当前时间=21:53:44
+用户 2: Token=1072_27*******, Time=00:00, Random=true
+随机签到: user=1072_27*******, 随机时间=21:49:17, 当前时间=21:53:44
+用户 3: Token=4968_un*******, Time=00:00, Random=true
+随机签到: user=4968_un*******, 随机时间=22:56:00, 当前时间=21:53:44
+用户 4: Token=5778_Pn*******, Time=00:00, Random=false
+固定时间签到: user=5778_Pn*******, time=00:00, split parts=[00 00]
+检查用户 5778_Pn*******: 计划时间=00:00:00, 当前时间=21:53:44
+用户 5: Token=3945_I4*******, Time=03:27, Random=true
+随机签到: user=3945_I4*******, 随机时间=22:40:49, 当前时间=21:53:44
+用户 6: Token=5693_Oe*******, Time=13:14, Random=false
+固定时间签到: user=5693_Oe*******, time=13:14, split parts=[13 14]
+检查用户 5693_Oe*******: 计划时间=13:14:00, 当前时间=21:53:44
+用户 7: Token=5873_VY*******, Time=00:00, Random=false
+固定时间签到: user=5873_VY*******, time=00:00, split parts=[00 00]
+检查用户 5873_VY*******: 计划时间=00:00:00, 当前时间=21:53:44
+[21:53:54] 系统运行中 - 当前用户: 7, 当前chat_ids: 10
+[21:54:04] 系统运行中 - 当前用户: 7, 当前chat_ids: 10
+获取更新失败: Get "https://api.telegram.org/bot8754758110:AAGscR-51usqNuB6hkEld7ovO_eQm5w-zCs/getUpdates?offset=0&timeout=30": context deadline exceeded
+获取Telegram更新: https://api.telegram.org/bot8754758110:AAGscR-51usqNuB6hkEld7ovO_eQm5w-zCs/getUpdates?offset=0&timeout=30
+发送Telegram请求...
+[21:54:14] 系统运行中 - 当前用户: 7, 当前chat_ids: 10
+[21:54:24] 系统运行中 - 当前用户: 7, 当前chat_ids: 10
+[21:54:34] 系统运行中 - 当前用户: 7, 当前chat_ids: 10
+获取更新失败: Get "https://api.telegram.org/bot8754758110:AAGscR-51usqNuB6hkEld7ovO_eQm5w-zCs/getUpdates?offset=0&timeout=30": context deadline exceeded
+[21:54:44] 系统运行中 - 当前用户: 7, 当前chat_ids: 10
+=== 签到调度器运行 ===
+当前时间(北京时间): 21:54:44
+用户数量: 7
+用户 1: Token=1047_ow*******, Time=00:00, Random=false
+固定时间签到: user=1047_ow*******, time=00:00, split parts=[00 00]
+检查用户 1047_ow*******: 计划时间=00:00:00, 当前时间=21:54:44
+用户 2: Token=1072_27*******, Time=00:00, Random=true
+随机签到: user=1072_27*******, 随机时间=21:49:17, 当前时间=21:54:44
+用户 3: Token=4968_un*******, Time=00:00, Random=true
+随机签到: user=4968_un*******, 随机时间=22:56:00, 当前时间=21:54:44
+用户 4: Token=5778_Pn*******, Time=00:00, Random=false
+固定时间签到: user=5778_Pn*******, time=00:00, split parts=[00 00]
+检查用户 5778_Pn*******: 计划时间=00:00:00, 当前时间=21:54:44
+用户 5: Token=3945_I4*******, Time=03:27, Random=true
+随机签到: user=3945_I4*******, 随机时间=22:40:49, 当前时间=21:54:44
+用户 6: Token=5693_Oe*******, Time=13:14, Random=false
+固定时间签到: user=5693_Oe*******, time=13:14, split parts=[13 14]
+检查用户 5693_Oe*******: 计划时间=13:14:00, 当前时间=21:54:44
+用户 7: Token=5873_VY*******, Time=00:00, Random=false
+固定时间签到: user=5873_VY*******, time=00:00, split parts=[00 00]
+检查用户 5873_VY*******: 计划时间=00:00:00, 当前时间=21:54:44
+获取Telegram更新: https://api.telegram.org/bot8754758110:AAGscR-51usqNuB6hkEld7ovO_eQm5w-zCs/getUpdates?offset=0&timeout=30
+发送Telegram请求...
+[21:54:54] 系统运行中 - 当前用户: 7, 当前chat_ids: 10
+[21:55:04] 系统运行中 - 当前用户: 7, 当前chat_ids: 10
+[21:55:14] 系统运行中 - 当前用户: 7, 当前chat_ids: 10
+获取更新失败: Get "https://api.telegram.org/bot8754758110:AAGscR-51usqNuB6hkEld7ovO_eQm5w-zCs/getUpdates?offset=0&timeout=30": context deadline exceeded
+获取Telegram更新: https://api.telegram.org/bot8754758110:AAGscR-51usqNuB6hkEld7ovO_eQm5w-zCs/getUpdates?offset=0&timeout=30
+发送Telegram请求...
+[21:55:24] 系统运行中 - 当前用户: 7, 当前chat_ids: 10
+[21:55:34] 系统运行中 - 当前用户: 7, 当前chat_ids: 10
+[21:55:44] 系统运行中 - 当前用户: 7, 当前chat_ids: 10
+=== 签到调度器运行 ===
+当前时间(北京时间): 21:55:44
+用户数量: 7
+用户 1: Token=1047_ow*******, Time=00:00, Random=false
+固定时间签到: user=1047_ow*******, time=00:00, split parts=[00 00]
+检查用户 1047_ow*******: 计划时间=00:00:00, 当前时间=21:55:44
+用户 2: Token=1072_27*******, Time=00:00, Random=true
+随机签到: user=1072_27*******, 随机时间=21:49:17, 当前时间=21:55:44
+用户 3: Token=4968_un*******, Time=00:00, Random=true
+随机签到: user=4968_un*******, 随机时间=22:56:00, 当前时间=21:55:44
+用户 4: Token=5778_Pn*******, Time=00:00, Random=false
+固定时间签到: user=5778_Pn*******, time=00:00, split parts=[00 00]
+检查用户 5778_Pn*******: 计划时间=00:00:00, 当前时间=21:55:44
+用户 5: Token=3945_I4*******, Time=03:27, Random=true
+随机签到: user=3945_I4*******, 随机时间=22:40:49, 当前时间=21:55:44
+用户 6: Token=5693_Oe*******, Time=13:14, Random=false
+固定时间签到: user=5693_Oe*******, time=13:14, split parts=[13 14]
+检查用户 5693_Oe*******: 计划时间=13:14:00, 当前时间=21:55:44
+用户 7: Token=5873_VY*******, Time=00:00, Random=false
+固定时间签到: user=5873_VY*******, time=00:00, split parts=[00 00]
+检查用户 5873_VY*******: 计划时间=00:00:00, 当前时间=21:55:44
+获取更新失败: Get "https://api.telegram.org/bot8754758110:AAGscR-51usqNuB6hkEld7ovO_eQm5w-zCs/getUpdates?offset=0&timeout=30": context deadline exceeded
+[21:55:54] 系统运行中 - 当前用户: 7, 当前chat_ids: 10
+获取Telegram更新: https://api.telegram.org/bot8754758110:AAGscR-51usqNuB6hkEld7ovO_eQm5w-zCs/getUpdates?offset=0&timeout=30
+发送Telegram请求...
+[21:56:04] 系统运行中 - 当前用户: 7, 当前chat_ids: 10
+[21:56:14] 系统运行中 - 当前用户: 7, 当前chat_ids: 10
+[21:56:24] 系统运行中 - 当前用户: 7, 当前chat_ids: 10
+获取更新失败: Get "https://api.telegram.org/bot8754758110:AAGscR-51usqNuB6hkEld7ovO_eQm5w-zCs/getUpdates?offset=0&timeout=30": context deadline exceeded
+获取Telegram更新: https://api.telegram.org/bot8754758110:AAGscR-51usqNuB6hkEld7ovO_eQm5w-zCs/getUpdates?offset=0&timeout=30
+发送Telegram请求...
+[21:56:34] 系统运行中 - 当前用户: 7, 当前chat_ids: 10
+[21:56:44] 系统运行中 - 当前用户: 7, 当前chat_ids: 10
+=== 签到调度器运行 ===
+当前时间(北京时间): 21:56:44
+用户数量: 7
+用户 1: Token=1047_ow*******, Time=00:00, Random=false
+固定时间签到: user=1047_ow*******, time=00:00, split parts=[00 00]
+检查用户 1047_ow*******: 计划时间=00:00:00, 当前时间=21:56:44
+用户 2: Token=1072_27*******, Time=00:00, Random=true
+随机签到: user=1072_27*******, 随机时间=21:49:17, 当前时间=21:56:44
+用户 3: Token=4968_un*******, Time=00:00, Random=true
+随机签到: user=4968_un*******, 随机时间=22:56:00, 当前时间=21:56:44
+用户 4: Token=5778_Pn*******, Time=00:00, Random=false
+固定时间签到: user=5778_Pn*******, time=00:00, split parts=[00 00]
+检查用户 5778_Pn*******: 计划时间=00:00:00, 当前时间=21:56:44
+用户 5: Token=3945_I4*******, Time=03:27, Random=true
+随机签到: user=3945_I4*******, 随机时间=22:40:49, 当前时间=21:56:44
+用户 6: Token=5693_Oe*******, Time=13:14, Random=false
+固定时间签到: user=5693_Oe*******, time=13:14, split parts=[13 14]
+检查用户 5693_Oe*******: 计划时间=13:14:00, 当前时间=21:56:44
+用户 7: Token=5873_VY*******, Time=00:00, Random=false
+固定时间签到: user=5873_VY*******, time=00:00, split parts=[00 00]
+检查用户 5873_VY*******: 计划时间=00:00:00, 当前时间=21:56:44
+[21:56:54] 系统运行中 - 当前用户: 7, 当前chat_ids: 10
 获取更新成功，状态码: 200
-响应体: {"ok":true,"result":[{"update_id":979418261,
-"message":{"message_id":786,"from":{"id":7712965941,"is_bot":false,"first_name":"f1ne","username":"xiaofanshuibuxing","language_code":"zh-hans","is_premium":true},"chat":{"id":7712965941,"first_name":"f1ne","username":"xiaofanshuibuxing","type":"private"},"date":1776345542,"text":"/list","entities":[{"offset":0,"length":5,"type":"bot_command"}]}}]}
+响应体: {"ok":true,"result":[{"update_id":979418282,
+"message":{"message_id":818,"from":{"id":7712965941,"is_bot":false,"first_name":"f1ne","username":"xiaofanshuibuxing","language_code":"zh-hans","is_premium":true},"chat":{"id":7712965941,"first_name":"f1ne","username":"xiaofanshuibuxing","type":"private"},"date":1776347814,"text":"/list","entities":[{"offset":0,"length":5,"type":"bot_command"}]}}]}
 获取到 1 条更新
 存储chat_id: 7712965941
 === 处理命令 ===
@@ -74,86 +331,39 @@ Telegram轮询线程已启动
 调用 handleListCommand
 发送消息到Telegram: 7712965941, 当前签到用户列表:
 1. Token: 1047_ow*******
-   用户名: *f1ne*
+   用户名: <b>f1ne</b>
    时间: 00:00
    备注: f1ne
 2. Token: 1072_27*******
-   用户名: *f1neboss*
+   用户名: <b>f1neboss</b>
    时间: 随机
-   今日随机时间: 23:11:55
+   今日随机时间: 21:49:17
    备注: 田曦薇
 3. Token: 4968_un*******
-   用户名: *f1negege*
+   用户名: <b>f1negege</b>
    时间: 随机
-   今日随机时间: 22:45:56
+   今日随机时间: 22:56:00
    备注: f1bb
 4. Token: 5778_Pn*******
-   用户名: *tryuhark*
+   用户名: <b>tryuhark</b>
    时间: 00:00
    备注: Ob一串字母大人
 5. Token: 3945_I4*******
-   用户名: *tockatv*
+   用户名: <b>tockatv</b>
    时间: 随机
-   今日随机时间: 23:22:44
+   今日随机时间: 22:40:49
    备注: xixi小号
 6. Token: 5693_Oe*******
-   用户名: *a9261288*
+   用户名: <b>a9261288</b>
    时间: 13:14
 7. Token: 5873_VY*******
-   用户名: *wst4288*
+   用户名: <b>wst4288</b>
    时间: 00:00
 发送消息URL: https://api.telegram.org/bot8754758110:AAGscR-51usqNuB6hkEld7ovO_eQm5w-zCs/sendMessage
-发送消息数据: {"chat_id":7712965941,"parse_mode":"Markdown","text":"当前签到用户列表:\n1. Token: 1047_ow*******\n   用户名: *f1ne*\n   时间: 00:00\n   备注: f1ne\n2. Token: 1072_27*******\n   用户名: *f1neboss*\n   时间: 随机\n   今日随机时间: 23:11:55\n   备注: 田曦薇\n3. Token: 4968_un*******\n   用户名: *f1negege*\n   时间: 随机\n   今日随机时间: 22:45:56\n   备注: f1bb\n4. Token: 5778_Pn*******\n   用户名: *tryuhark*\n   时间: 00:00\n   备注: Ob一串字母大人\n5. Token: 3945_I4*******\n   用户名: *tockatv*\n   时间: 随机\n   今日随机时间: 23:22:44\n   备注: xixi小号\n6. Token: 5693_Oe*******\n   用户名: *a9261288*\n   时间: 13:14\n7. Token: 5873_VY*******\n   用户名: *wst4288*\n   时间: 00:00\n"}
-发送消息响应状态码: 400
-发送消息响应体: {"ok":false,"error_code":400,"description":"Bad Request: can't parse entities: Can't find end of the entity starting at byte offset 643"}
-发送消息失败，状态码: 400
-获取Telegram更新: https://api.telegram.org/bot8754758110:AAGscR-51usqNuB6hkEld7ovO_eQm5w-zCs/getUpdates?offset=979418262&timeout=30
+发送消息数据: {"chat_id":7712965941,"parse_mode":"HTML","text":"当前签到用户列表:\n1. Token: 1047_ow*******\n   用户名: \u003cb\u003ef1ne\u003c/b\u003e\n   时间: 00:00\n   备注: f1ne\n2. Token: 1072_27*******\n   用户名: \u003cb\u003ef1neboss\u003c/b\u003e\n   时间: 随机\n   今日随机时间: 21:49:17\n   备注: 田曦薇\n3. Token: 4968_un*******\n   用户名: \u003cb\u003ef1negege\u003c/b\u003e\n   时间: 随机\n   今日随机时间: 22:56:00\n   备注: f1bb\n4. Token: 5778_Pn*******\n   用户名: \u003cb\u003etryuhark\u003c/b\u003e\n   时间: 00:00\n   备注: Ob一串字母大人\n5. Token: 3945_I4*******\n   用户名: \u003cb\u003etockatv\u003c/b\u003e\n   时间: 随机\n   今日随机时间: 22:40:49\n   备注: xixi小号\n6. Token: 5693_Oe*******\n   用户名: \u003cb\u003ea9261288\u003c/b\u003e\n   时间: 13:14\n7. Token: 5873_VY*******\n   用户名: \u003cb\u003ewst4288\u003c/b\u003e\n   时间: 00:00\n"}
+发送消息响应状态码: 200
+发送消息响应体: {"ok":true,"result":{"message_id":819,"from":{"id":8754758110,"is_bot":true,"first_name":"emos_sign_bot","username":"EmosCheckinBot"},"chat":{"id":7712965941,"first_name":"f1ne","username":"xiaofanshuibuxing","type":"private"},"date":1776347814,"text":"\u5f53\u524d\u7b7e\u5230\u7528\u6237\u5217\u8868:\n1. Token: 1047_ow*******\n   \u7528\u6237\u540d: f1ne\n   \u65f6\u95f4: 00:00\n   \u5907\u6ce8: f1ne\n2. Token: 1072_27*******\n   \u7528\u6237\u540d: f1neboss\n   \u65f6\u95f4: \u968f\u673a\n   \u4eca\u65e5\u968f\u673a\u65f6\u95f4: 21:49:17\n   \u5907\u6ce8: \u7530\u66e6\u8587\n3. Token: 4968_un*******\n   \u7528\u6237\u540d: f1negege\n   \u65f6\u95f4: \u968f\u673a\n   \u4eca\u65e5\u968f\u673a\u65f6\u95f4: 22:56:00\n   \u5907\u6ce8: f1bb\n4. Token: 5778_Pn*******\n   \u7528\u6237\u540d: tryuhark\n   \u65f6\u95f4: 00:00\n   \u5907\u6ce8: Ob\u4e00\u4e32\u5b57\u6bcd\u5927\u4eba\n5. Token: 3945_I4*******\n   \u7528\u6237\u540d: tockatv\n   \u65f6\u95f4: \u968f\u673a\n   \u4eca\u65e5\u968f\u673a\u65f6\u95f4: 22:40:49\n   \u5907\u6ce8: xixi\u5c0f\u53f7\n6. Token: 5693_Oe*******\n   \u7528\u6237\u540d: a9261288\n   \u65f6\u95f4: 13:14\n7. Token: 5873_VY*******\n   \u7528\u6237\u540d: wst4288\n   \u65f6\u95f4: 00:00","entities":[{"offset":43,"length":4,"type":"bold"},{"offset":106,"length":8,"type":"bold"},{"offset":189,"length":8,"type":"bold"},{"offset":273,"length":8,"type":"bold"},{"offset":344,"length":7,"type":"bold"},{"offset":429,"length":8,"type":"bold"},{"offset":484,"length":7,"type":"bold"}]}}
+发送消息成功
+获取Telegram更新: https://api.telegram.org/bot8754758110:AAGscR-51usqNuB6hkEld7ovO_eQm5w-zCs/getUpdates?offset=979418283&timeout=30
 发送Telegram请求...
-[21:19:04] 系统运行中 - 当前用户: 7, 当前chat_ids: 10
-获取更新成功，状态码: 200
-响应体: {"ok":true,"result":[{"update_id":979418262,
-"message":{"message_id":787,"from":{"id":7712965941,"is_bot":false,"first_name":"f1ne","username":"xiaofanshuibuxing","language_code":"zh-hans","is_premium":true},"chat":{"id":7712965941,"first_name":"f1ne","username":"xiaofanshuibuxing","type":"private"},"date":1776345546,"text":"/list","entities":[{"offset":0,"length":5,"type":"bot_command"}]}}]}
-获取到 1 条更新
-存储chat_id: 7712965941
-=== 处理命令 ===
-原始文本: '/list'
-去除空格后: '/list'
-调用 handleListCommand
-发送消息到Telegram: 7712965941, 当前签到用户列表:
-1. Token: 1047_ow*******
-   用户名: *f1ne*
-   时间: 00:00
-   备注: f1ne
-2. Token: 1072_27*******
-   用户名: *f1neboss*
-   时间: 随机
-   今日随机时间: 23:11:55
-   备注: 田曦薇
-3. Token: 4968_un*******
-   用户名: *f1negege*
-   时间: 随机
-   今日随机时间: 22:45:56
-   备注: f1bb
-4. Token: 5778_Pn*******
-   用户名: *tryuhark*
-   时间: 00:00
-   备注: Ob一串字母大人
-5. Token: 3945_I4*******
-   用户名: *tockatv*
-   时间: 随机
-   今日随机时间: 23:22:44
-   备注: xixi小号
-6. Token: 5693_Oe*******
-   用户名: *a9261288*
-   时间: 13:14
-7. Token: 5873_VY*******
-   用户名: *wst4288*
-   时间: 00:00
-发送消息URL: https://api.telegram.org/bot8754758110:AAGscR-51usqNuB6hkEld7ovO_eQm5w-zCs/sendMessage
-发送消息数据: {"chat_id":7712965941,"parse_mode":"Markdown","text":"当前签到用户列表:\n1. Token: 1047_ow*******\n   用户名: *f1ne*\n   时间: 00:00\n   备注: f1ne\n2. Token: 1072_27*******\n   用户名: *f1neboss*\n   时间: 随机\n   今日随机时间: 23:11:55\n   备注: 田曦薇\n3. Token: 4968_un*******\n   用户名: *f1negege*\n   时间: 随机\n   今日随机时间: 22:45:56\n   备注: f1bb\n4. Token: 5778_Pn*******\n   用户名: *tryuhark*\n   时间: 00:00\n   备注: Ob一串字母大人\n5. Token: 3945_I4*******\n   用户名: *tockatv*\n   时间: 随机\n   今日随机时间: 23:22:44\n   备注: xixi小号\n6. Token: 5693_Oe*******\n   用户名: *a9261288*\n   时间: 13:14\n7. Token: 5873_VY*******\n   用户名: *wst4288*\n   时间: 00:00\n"}
-发送消息响应状态码: 400
-发送消息响应体: {"ok":false,"error_code":400,"description":"Bad Request: can't parse entities: Can't find end of the entity starting at byte offset 643"}
-发送消息失败，状态码: 400
-获取Telegram更新: https://api.telegram.org/bot8754758110:AAGscR-51usqNuB6hkEld7ovO_eQm5w-zCs/getUpdates?offset=979418263&timeout=30
-发送Telegram请求...
-[21:19:14] 系统运行中 - 当前用户: 7, 当前chat_ids: 10
+[21:57:04] 系统运行中 - 当前用户: 7, 当前chat_ids: 10

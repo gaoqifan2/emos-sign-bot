@@ -220,15 +220,15 @@ func main() {
 	// 启动轮询获取Telegram消息（如果启用）
 	if config.EnableTelegram {
 		go func() {
+			// 捕获panic
+			defer func() {
+				if r := recover(); r != nil {
+					printlnUTF8(fmt.Sprintf("Telegram轮询线程崩溃: %v", r))
+				}
+			}()
 			printlnUTF8("Telegram轮询线程已启动")
 			for {
 				printlnUTF8("启动Telegram轮询...")
-				// 捕获panic
-				defer func() {
-					if r := recover(); r != nil {
-						printlnUTF8(fmt.Sprintf("Telegram轮询崩溃: %v", r))
-					}
-				}()
 				telegramPolling()
 				printlnUTF8("Telegram轮询退出，5秒后重新启动...")
 				time.Sleep(5 * time.Second)
@@ -1170,6 +1170,30 @@ func handleRemoveCommand(chatID int64, text string) {
 	}
 }
 
+// 转义MarkdownV2特殊字符
+func escapeMarkdownV2(text string) string {
+	// 转义MarkdownV2中的特殊字符
+	text = strings.ReplaceAll(text, "_", "\\_")
+	text = strings.ReplaceAll(text, "*", "\\*")
+	text = strings.ReplaceAll(text, "[", "\\[")
+	text = strings.ReplaceAll(text, "]", "\\]")
+	text = strings.ReplaceAll(text, "(", "\\(")
+	text = strings.ReplaceAll(text, ")", "\\)")
+	text = strings.ReplaceAll(text, "~", "\\~")
+	text = strings.ReplaceAll(text, "`", "\\`")
+	text = strings.ReplaceAll(text, "#", "\\#")
+	text = strings.ReplaceAll(text, "$", "\\$")
+	text = strings.ReplaceAll(text, "+", "\\+")
+	text = strings.ReplaceAll(text, "-", "\\-")
+	text = strings.ReplaceAll(text, "=", "\\=")
+	text = strings.ReplaceAll(text, "|", "\\|")
+	text = strings.ReplaceAll(text, "{", "\\{")
+	text = strings.ReplaceAll(text, "}", "\\}")
+	text = strings.ReplaceAll(text, ".", "\\.")
+	text = strings.ReplaceAll(text, "!", "\\!")
+	return text
+}
+
 // 处理列出用户命令
 func handleListCommand(chatID int64) {
 	usersMutex.Lock()
@@ -1184,9 +1208,13 @@ func handleListCommand(chatID int64) {
 	for i, user := range users {
 		message += fmt.Sprintf("%d. Token: %s\n", i+1, truncateToken(user.Token))
 		if user.Username != "" {
-			// 确保用户名中不包含Markdown特殊字符
-			safeUsername := strings.ReplaceAll(user.Username, "*", "")
-			message += fmt.Sprintf("   用户名: *%s*\n", safeUsername)
+			// 确保用户名中不包含HTML特殊字符
+			safeUsername := strings.ReplaceAll(user.Username, "<", "&lt;")
+			safeUsername = strings.ReplaceAll(safeUsername, ">", "&gt;")
+			safeUsername = strings.ReplaceAll(safeUsername, "&", "&amp;")
+			safeUsername = strings.ReplaceAll(safeUsername, "\"", "&quot;")
+			safeUsername = strings.ReplaceAll(safeUsername, "'", "&#39;")
+			message += fmt.Sprintf("   用户名: <b>%s</b>\n", safeUsername)
 		}
 		message += fmt.Sprintf("   时间: %s\n", func() string {
 			if user.Random {
@@ -1204,6 +1232,12 @@ func handleListCommand(chatID int64) {
 		if user.Remark != "" {
 			// 确保备注中不包含Markdown特殊字符
 			safeRemark := strings.ReplaceAll(user.Remark, "*", "")
+			safeRemark = strings.ReplaceAll(safeRemark, "_", "")
+			safeRemark = strings.ReplaceAll(safeRemark, "`", "")
+			safeRemark = strings.ReplaceAll(safeRemark, "[", "")
+			safeRemark = strings.ReplaceAll(safeRemark, "]", "")
+			safeRemark = strings.ReplaceAll(safeRemark, "(", "")
+			safeRemark = strings.ReplaceAll(safeRemark, ")", "")
 			message += fmt.Sprintf("   备注: %s\n", safeRemark)
 		}
 	}
@@ -1248,10 +1282,11 @@ func truncateToken(token string) string {
 func sendTelegramMessage(chatID int64, text string) {
 	printlnUTF8(fmt.Sprintf("发送消息到Telegram: %d, %s", chatID, text))
 
+	// 使用HTML格式，确保用户名显示为粗体
 	payload := map[string]interface{}{
 		"chat_id":    chatID,
 		"text":       text,
-		"parse_mode": "Markdown",
+		"parse_mode": "HTML",
 	}
 
 	data, err := json.Marshal(payload)
@@ -1264,13 +1299,27 @@ func sendTelegramMessage(chatID int64, text string) {
 	printlnUTF8(fmt.Sprintf("发送消息URL: %s", apiURL))
 	printlnUTF8(fmt.Sprintf("发送消息数据: %s", string(data)))
 	
-	// 配置代理
-	client := &http.Client{
-		Timeout:   30 * time.Second,
-		Transport: http.DefaultTransport,
+	// 创建一个带超时的上下文
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	
+	// 创建请求
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, apiURL, strings.NewReader(string(data)))
+	if err != nil {
+		printlnUTF8(fmt.Sprintf("创建请求失败: %v", err))
+		return
 	}
 	
-	resp, err := client.Post(apiURL, "application/json", strings.NewReader(string(data)))
+	// 设置请求头
+	req.Header.Set("Content-Type", "application/json")
+	
+	// 使用与telegramPolling函数相同的HTTP客户端设置
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+	}
+	
+	// 发送请求
+	resp, err := client.Do(req)
 	if err != nil {
 		printlnUTF8(fmt.Sprintf("发送消息失败: %v", err))
 		return
@@ -1498,7 +1547,10 @@ func getUserInfo(token string) (UserInfo, error) {
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
 	req.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{}
+	// 使用与setupNetwork函数中相同的代理设置
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+	}
 	resp, err := client.Do(req)
 	if err != nil {
 		return userInfo, err
@@ -1672,14 +1724,15 @@ func telegramPolling() {
 			continue
 		}
 		
-		// 确保响应体被关闭
-		defer resp.Body.Close()
-		defer cancel()
-		
 		printlnUTF8(fmt.Sprintf("获取更新成功，状态码: %d", resp.StatusCode))
 		
 		// 读取响应体
 		responseBody, err := io.ReadAll(resp.Body)
+		// 关闭响应体
+		resp.Body.Close()
+		// 取消上下文
+		cancel()
+		
 		if err != nil {
 			printlnUTF8(fmt.Sprintf("读取响应体失败: %v", err))
 			time.Sleep(5 * time.Second)
