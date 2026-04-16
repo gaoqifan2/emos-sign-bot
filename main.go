@@ -1347,8 +1347,9 @@ func sendTelegramMessage(chatID int64, text string) {
 func checkinScheduler() {
 	// 启动时立即执行一次
 	checkinUsers()
-	
-	ticker := time.NewTicker(1 * time.Minute)
+
+	// 改为每秒检查一次，实现秒级签到
+	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 
 	for {
@@ -1397,10 +1398,10 @@ func checkinUsers() {
 			randomMinute := 0
 			randomSecond := 0
 			needUpdate := false
-			
-			if user.RandomTime == "" {
+
+			if user.RandomTime == "" || user.RandomTime == "checked" {
 				// 生成今天的随机时间，确保是当前时间之后的时间
-				// 使用外部的currentHour和currentMinute，确保时间一致性
+				// 使用外部的currentHour和currentMinute和currentSecond，确保时间一致性
 				hourRange := 23 - currentHour
 				if hourRange > 0 {
 					randomHour = currentHour + rand.Intn(hourRange + 1)
@@ -1408,24 +1409,43 @@ func checkinUsers() {
 					// 当前时间是23点，只能选择23点
 					randomHour = 23
 				}
-				
+
 				// 如果是当前小时，生成当前分钟之后的分钟
 				if randomHour == currentHour {
 					minuteRange := 59 - currentMinute
 					if minuteRange > 0 {
 						randomMinute = currentMinute + 1 + rand.Intn(minuteRange)
 					} else {
-						// 当前时间是23:59，只能选择23:59
+						// 当前分钟是59，只能选择59
 						randomMinute = 59
 					}
 				} else {
 					// 其他小时，生成任意分钟
 					randomMinute = rand.Intn(60)
 				}
-				
-				// 生成任意秒数
-				randomSecond = rand.Intn(60)
-				
+
+				// 如果是当前分钟，生成当前秒之后的秒
+				if randomHour == currentHour && randomMinute == currentMinute {
+					secondRange := 59 - currentSecond
+					if secondRange > 0 {
+						randomSecond = currentSecond + 1 + rand.Intn(secondRange)
+					} else {
+						// 当前秒是59，等待下一分钟
+						randomSecond = 0
+						randomMinute++
+						if randomMinute > 59 {
+							randomMinute = 0
+							randomHour++
+							if randomHour > 23 {
+								randomHour = 23
+							}
+						}
+					}
+				} else {
+					// 其他小时或分钟，生成任意秒数
+					randomSecond = rand.Intn(60)
+				}
+
 				user.RandomTime = fmt.Sprintf("%02d:%02d:%02d", randomHour, randomMinute, randomSecond)
 				needUpdate = true
 				printlnUTF8(fmt.Sprintf("生成随机时间: %s", user.RandomTime))
@@ -1443,6 +1463,7 @@ func checkinUsers() {
 				}
 			}
 			
+			// 恢复秒级检查
 			printlnUTF8(fmt.Sprintf("随机签到: user=%s, 随机时间=%s, 当前时间=%02d:%02d:%02d", truncateToken(user.Token), user.RandomTime, currentHour, currentMinute, currentSecond))
 			
 			if randomHour == currentHour && randomMinute == currentMinute && randomSecond == currentSecond {
@@ -1470,8 +1491,8 @@ func checkinUsers() {
 				usersMutex.Unlock()
 				saveData()
 			}
-		} else {
-			// 固定时间签到
+		}
+		// 固定时间签到
 			parts := strings.Split(user.Time, ":")
 			printlnUTF8(fmt.Sprintf("固定时间签到: user=%s, time=%s, split parts=%v", truncateToken(user.Token), user.Time, parts))
 			if len(parts) >= 2 {
@@ -1490,6 +1511,7 @@ func checkinUsers() {
 					second, _ = strconv.Atoi(parts[2])
 				}
 				printlnUTF8(fmt.Sprintf("检查用户 %s: 计划时间=%02d:%02d:%02d, 当前时间=%02d:%02d:%02d", truncateToken(user.Token), hour, minute, second, currentHour, currentMinute, currentSecond))
+				// 恢复秒级检查
 				if hour == currentHour && minute == currentMinute && second == currentSecond {
 					printlnUTF8(fmt.Sprintf("开始签到用户: %s", truncateToken(user.Token)))
 					go performCheckin(user.Token)
@@ -1497,7 +1519,6 @@ func checkinUsers() {
 			} else {
 				printlnUTF8(fmt.Sprintf("用户 %s 的时间格式无效: %s", truncateToken(user.Token), user.Time))
 			}
-		}
 	}
 }
 
