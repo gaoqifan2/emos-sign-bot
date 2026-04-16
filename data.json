@@ -9,23 +9,72 @@
       "username": "f1ne"
     },
     {
+      "token": "1072_27phBMQqF1tTuiUN",
+      "time": "00:00",
+      "random": true,
+      "random_time": "01:01",
+      "remark": "田曦薇",
+      "username": "f1neboss"
+    },
+    {
       "token": "4968_unXmpyhUC3oPVpHa",
       "time": "00:00",
       "random": true,
-      "random_time": "19:03:10",
+      "random_time": "09:26",
       "remark": "f1bb",
       "username": "f1negege"
     },
     {
-      "token": "1072_27phBMQqF1tTuiUN",
+      "token": "5778_PnB140t5IRpydejF",
       "time": "00:00",
+      "random": false,
+      "random_time": "",
+      "remark": "Ob一串字母大人",
+      "username": "tryuhark"
+    },
+    {
+      "token": "3945_I498pg8pK4AdW7iU",
+      "time": "03:27",
       "random": true,
-      "random_time": "23:34:33",
-      "remark": "田曦薇",
-      "username": "f1neboss"
+      "random_time": "13:46",
+      "remark": "xixi小号",
+      "username": "tockatv"
+    },
+    {
+      "token": "5693_Oe0LDK1gZTupLp3B",
+      "time": "13:14",
+      "random": false,
+      "random_time": "",
+      "remark": "",
+      "username": "a9261288"
+    },
+    {
+      "token": "8570908232:AAEtUiGZ2lqVBb2PjOylyuOG23K9hOFFsIo",
+      "time": "time",
+      "random": false,
+      "random_time": "",
+      "remark": "",
+      "username": ""
+    },
+    {
+      "token": "5873_VYgUu82jj2wnLnTH",
+      "time": "00:00",
+      "random": false,
+      "random_time": "",
+      "remark": "",
+      "username": "wst4288"
     }
   ],
   "chat_ids": {
+    "1109870106": true,
+    "1206469254": true,
+    "479378756": true,
+    "5709738255": true,
+    "5805990999": true,
+    "7346917792": true,
+    "7520240928": true,
+    "7712965941": true,
+    "7976277178": true,
     "8230046662": true
   }
 }
