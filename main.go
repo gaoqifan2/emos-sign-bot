@@ -134,6 +134,14 @@ func writeLog(s string) {
 
 // 直接输出UTF-8编码的字符串
 func printlnUTF8(s string) {
+	defer func() {
+		if r := recover(); r != nil {
+			// 捕获panic，确保程序不会崩溃
+			// 尝试使用更简单的方式输出错误信息
+			os.Stderr.Write([]byte(fmt.Sprintf("printlnUTF8 panic: %v\n", r)))
+		}
+	}()
+	
 	n := len(s)
 	if n > 0 && s[n-1] != '\n' {
 		s += "\n"
@@ -141,6 +149,12 @@ func printlnUTF8(s string) {
 	n = len(s)
 	
 	// 同时输出到日志文件
+	defer func() {
+		if r := recover(); r != nil {
+			// 捕获writeLog的panic
+			os.Stderr.Write([]byte(fmt.Sprintf("writeLog panic: %v\n", r)))
+		}
+	}()
 	writeLog(s)
 	
 	// 直接使用fmt.Println函数
@@ -206,12 +220,19 @@ func main() {
 	// 启动轮询获取Telegram消息（如果启用）
 	if config.EnableTelegram {
 		go func() {
-			defer func() {
-				if r := recover(); r != nil {
-					printlnUTF8(fmt.Sprintf("Telegram轮询崩溃: %v", r))
-				}
-			}()
-			telegramPolling()
+			printlnUTF8("Telegram轮询线程已启动")
+			for {
+				printlnUTF8("启动Telegram轮询...")
+				// 捕获panic
+				defer func() {
+					if r := recover(); r != nil {
+						printlnUTF8(fmt.Sprintf("Telegram轮询崩溃: %v", r))
+					}
+				}()
+				telegramPolling()
+				printlnUTF8("Telegram轮询退出，5秒后重新启动...")
+				time.Sleep(5 * time.Second)
+			}
 		}()
 		printlnUTF8("Telegram轮询已启用")
 	} else {
@@ -586,15 +607,36 @@ func handleWebhook(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// 处理命令
-		if strings.HasPrefix(text, "/add") {
-			// 开始一步一步添加用户
-			startAddUser(chatID)
-		} else if strings.HasPrefix(text, "/remove") {
-			// 开始一步一步删除用户
-			startRemoveUser(chatID)
-		} else if text == "/list" {
+		trimmedText := strings.TrimSpace(text)
+		// 调试日志：打印处理命令前的信息
+		printlnUTF8("=== 处理命令 ===")
+		printlnUTF8(fmt.Sprintf("原始文本: '%s'", text))
+		printlnUTF8(fmt.Sprintf("去除空格后: '%s'", trimmedText))
+		
+		// 处理 /add 命令
+		if strings.HasPrefix(trimmedText, "/add") {
+			// 检查是否是单独的 /add 命令
+			if trimmedText == "/add" {
+				// 开始一步一步添加用户
+				printlnUTF8("调用 startAddUser")
+				startAddUser(chatID)
+			} else {
+				// 兼容旧格式
+				printlnUTF8("调用 handleAddCommand (旧格式)")
+				handleAddCommand(chatID, text)
+			}
+		} else if strings.HasPrefix(trimmedText, "/remove") {
+			// 检查是否是单独的 /remove 命令
+			if trimmedText == "/remove" {
+				// 开始一步一步删除用户
+				startRemoveUser(chatID)
+			} else {
+				// 兼容旧格式
+				handleRemoveCommand(chatID, text)
+			}
+		} else if trimmedText == "/list" {
 			handleListCommand(chatID)
-		} else if text == "/help" {
+		} else if trimmedText == "/help" {
 			handleHelpCommand(chatID)
 		} else {
 			sendTelegramMessage(chatID, "请使用 /help 查看可用命令")
@@ -655,6 +697,16 @@ func handleUserState(chatID int64, text string, state UserState) {
 
 // 处理等待token状态
 func handleWaitToken(chatID int64, text string) {
+	// 检查是否输入0退出
+	if text == "0" {
+		// 清除用户状态
+		stateMutex.Lock()
+		delete(userStates, chatID)
+		stateMutex.Unlock()
+		sendTelegramMessage(chatID, "已取消添加用户")
+		return
+	}
+
 	// 检查token是否为空
 	if strings.TrimSpace(text) == "" {
 		sendTelegramMessage(chatID, "Token不能为空，请重新输入:")
@@ -681,11 +733,21 @@ func handleWaitToken(chatID int64, text string) {
 	stateMutex.Unlock()
 
 	// 发送提示消息
-	sendTelegramMessage(chatID, "请选择签到模式:\n1. 固定时间签到\n2. 随机时间签到")
+	sendTelegramMessage(chatID, "请选择签到模式:\n1. 固定时间签到\n2. 随机时间签到\n输入0取消")
 }
 
 // 处理等待模式状态
 func handleWaitMode(chatID int64, text string, data map[string]string) {
+	// 检查是否输入0退出
+	if text == "0" {
+		// 清除用户状态
+		stateMutex.Lock()
+		delete(userStates, chatID)
+		stateMutex.Unlock()
+		sendTelegramMessage(chatID, "已取消添加用户")
+		return
+	}
+
 	// 检查输入是否有效
 	if text != "1" && text != "2" {
 		sendTelegramMessage(chatID, "请输入正确的选项(1或2):")
@@ -706,14 +768,24 @@ func handleWaitMode(chatID int64, text string, data map[string]string) {
 
 	// 发送提示消息
 	if random {
-		sendTelegramMessage(chatID, "已选择随机时间签到，请输入一个参考时间(格式: HH:MM:SS，例如: 08:30:00):")
+		sendTelegramMessage(chatID, "已选择随机时间签到，请输入一个参考时间(格式: HH:MM:SS，例如: 08:30:00):\n输入0取消")
 	} else {
-		sendTelegramMessage(chatID, "请输入固定签到时间(格式: HH:MM:SS，例如: 08:30:00):")
+		sendTelegramMessage(chatID, "请输入固定签到时间(格式: HH:MM:SS，例如: 08:30:00):\n输入0取消")
 	}
 }
 
 // 处理等待时间状态
 func handleWaitTime(chatID int64, text string, data map[string]string) {
+	// 检查是否输入0退出
+	if text == "0" {
+		// 清除用户状态
+		stateMutex.Lock()
+		delete(userStates, chatID)
+		stateMutex.Unlock()
+		sendTelegramMessage(chatID, "已取消添加用户")
+		return
+	}
+
 	// 替换中文冒号为英文冒号
 	timeStr := strings.ReplaceAll(text, "：", ":")
 
@@ -759,16 +831,23 @@ func handleWaitTime(chatID int64, text string, data map[string]string) {
 	stateMutex.Unlock()
 
 	// 发送提示消息
-	sendTelegramMessage(chatID, "请输入备注信息(如不需要备注，输入0):")
+	sendTelegramMessage(chatID, "请输入备注信息(如不需要备注，输入0):\n输入0取消")
 }
 
 // 处理等待备注状态
 func handleWaitRemark(chatID int64, text string, data map[string]string) {
+	// 检查是否输入0退出
+	if text == "0" {
+		// 清除用户状态
+		stateMutex.Lock()
+		delete(userStates, chatID)
+		stateMutex.Unlock()
+		sendTelegramMessage(chatID, "已取消添加用户")
+		return
+	}
+
 	// 处理备注
 	remark := text
-	if text == "0" {
-		remark = ""
-	}
 
 	// 保存备注
 	data["remark"] = remark
@@ -795,6 +874,16 @@ func handleWaitRemark(chatID int64, text string, data map[string]string) {
 
 // 处理等待删除方式状态
 func handleWaitRemoveOpt(chatID int64, text string) {
+	// 检查是否输入0退出
+	if text == "0" {
+		// 清除用户状态
+		stateMutex.Lock()
+		delete(userStates, chatID)
+		stateMutex.Unlock()
+		sendTelegramMessage(chatID, "已取消删除用户")
+		return
+	}
+
 	// 检查输入是否有效
 	if text != "1" && text != "2" {
 		sendTelegramMessage(chatID, "请输入正确的选项(1或2):")
@@ -814,14 +903,24 @@ func handleWaitRemoveOpt(chatID int64, text string) {
 
 	// 发送提示消息
 	if text == "1" {
-		sendTelegramMessage(chatID, "请输入要删除的用户Token:")
+		sendTelegramMessage(chatID, "请输入要删除的用户Token:\n输入0取消")
 	} else {
-		sendTelegramMessage(chatID, "请输入要删除的用户名:")
+		sendTelegramMessage(chatID, "请输入要删除的用户名:\n输入0取消")
 	}
 }
 
 // 处理等待删除用户状态
 func handleWaitRemoveUser(chatID int64, text string, data map[string]string) {
+	// 检查是否输入0退出
+	if text == "0" {
+		// 清除用户状态
+		stateMutex.Lock()
+		delete(userStates, chatID)
+		stateMutex.Unlock()
+		sendTelegramMessage(chatID, "已取消删除用户")
+		return
+	}
+
 	// 提取删除方式
 	removeOpt := data["removeOpt"]
 
@@ -1001,16 +1100,16 @@ func handleAddCommand(chatID int64, text string) {
 		if user.Token == token {
 			// 更新现有用户
 			users[i] = User{
-					Token:      token,
-					Time:       timeStr,
-					Random:     random,
-					RandomTime: randomTime,
-					Remark:     remark,
-					Username:   username,
-				}
-				found = true
-				printlnUTF8(fmt.Sprintf("更新用户: %s, 用户名: %s, 备注: %s", truncateToken(token), username, remark))
-				break
+				Token:      token,
+				Time:       timeStr,
+				Random:     random,
+				RandomTime: randomTime,
+				Remark:     remark,
+				Username:   username,
+			}
+			found = true
+			printlnUTF8(fmt.Sprintf("更新用户: %s, 用户名: %s, 备注: %s", truncateToken(token), username, remark))
+			break
 		}
 	}
 
@@ -1025,22 +1124,6 @@ func handleAddCommand(chatID int64, text string) {
 			Username:   username,
 		})
 		printlnUTF8(fmt.Sprintf("添加新用户: %s, 用户名: %s, 备注: %s", truncateToken(token), username, remark))
-	} else {
-		// 更新现有用户
-		for i, user := range users {
-			if user.Token == token {
-				users[i] = User{
-					Token:      token,
-					Time:       timeStr,
-					Random:     random,
-					RandomTime: randomTime,
-					Remark:     remark,
-					Username:   username,
-				}
-				break
-			}
-		}
-		printlnUTF8(fmt.Sprintf("更新用户: %s, 用户名: %s, 备注: %s", truncateToken(token), username, remark))
 	}
 	
 	// 保存数据
@@ -1101,7 +1184,9 @@ func handleListCommand(chatID int64) {
 	for i, user := range users {
 		message += fmt.Sprintf("%d. Token: %s\n", i+1, truncateToken(user.Token))
 		if user.Username != "" {
-			message += fmt.Sprintf("   用户名: %s\n", user.Username)
+			// 确保用户名中不包含Markdown特殊字符
+			safeUsername := strings.ReplaceAll(user.Username, "*", "")
+			message += fmt.Sprintf("   用户名: *%s*\n", safeUsername)
 		}
 		message += fmt.Sprintf("   时间: %s\n", func() string {
 			if user.Random {
@@ -1117,7 +1202,9 @@ func handleListCommand(chatID int64) {
 			}
 		}
 		if user.Remark != "" {
-			message += fmt.Sprintf("   备注: %s\n", user.Remark)
+			// 确保备注中不包含Markdown特殊字符
+			safeRemark := strings.ReplaceAll(user.Remark, "*", "")
+			message += fmt.Sprintf("   备注: %s\n", safeRemark)
 		}
 	}
 
@@ -1162,8 +1249,9 @@ func sendTelegramMessage(chatID int64, text string) {
 	printlnUTF8(fmt.Sprintf("发送消息到Telegram: %d, %s", chatID, text))
 
 	payload := map[string]interface{}{
-		"chat_id": chatID,
-		"text":    text,
+		"chat_id":    chatID,
+		"text":       text,
+		"parse_mode": "Markdown",
 	}
 
 	data, err := json.Marshal(payload)
@@ -1172,16 +1260,37 @@ func sendTelegramMessage(chatID int64, text string) {
 		return
 	}
 
-	url := fmt.Sprintf("%s%s/sendMessage", config.TelegramApiURL, config.TelegramBotToken)
-	resp, err := http.Post(url, "application/json", strings.NewReader(string(data)))
+	apiURL := fmt.Sprintf("%s%s/sendMessage", config.TelegramApiURL, config.TelegramBotToken)
+	printlnUTF8(fmt.Sprintf("发送消息URL: %s", apiURL))
+	printlnUTF8(fmt.Sprintf("发送消息数据: %s", string(data)))
+	
+	// 配置代理
+	client := &http.Client{
+		Timeout:   30 * time.Second,
+		Transport: http.DefaultTransport,
+	}
+	
+	resp, err := client.Post(apiURL, "application/json", strings.NewReader(string(data)))
 	if err != nil {
 		printlnUTF8(fmt.Sprintf("发送消息失败: %v", err))
 		return
 	}
 	defer resp.Body.Close()
 
+	// 读取响应体
+	responseBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		printlnUTF8(fmt.Sprintf("读取响应失败: %v", err))
+		return
+	}
+	
+	printlnUTF8(fmt.Sprintf("发送消息响应状态码: %d", resp.StatusCode))
+	printlnUTF8(fmt.Sprintf("发送消息响应体: %s", string(responseBody)))
+
 	if resp.StatusCode != http.StatusOK {
 		printlnUTF8(fmt.Sprintf("发送消息失败，状态码: %d", resp.StatusCode))
+	} else {
+		printlnUTF8("发送消息成功")
 	}
 }
 
@@ -1526,14 +1635,59 @@ func telegramPolling() {
 	var offset int64 = 0
 	
 	for {
+		// 捕获循环中的panic
+		defer func() {
+			if r := recover(); r != nil {
+				printlnUTF8(fmt.Sprintf("Telegram轮询循环崩溃: %v", r))
+			}
+		}()
+		
 		// 调用getUpdates API
-		url := fmt.Sprintf("%s%s/getUpdates?offset=%d&timeout=30", config.TelegramApiURL, config.TelegramBotToken, offset)
-		resp, err := http.Get(url)
+		apiURL := fmt.Sprintf("%s%s/getUpdates?offset=%d&timeout=30", config.TelegramApiURL, config.TelegramBotToken, offset)
+		printlnUTF8(fmt.Sprintf("获取Telegram更新: %s", apiURL))
+		
+		// 创建一个带超时的上下文
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		
+		// 创建请求
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiURL, nil)
 		if err != nil {
-			printlnUTF8(fmt.Sprintf("获取更新失败: %v", err))
+			printlnUTF8(fmt.Sprintf("创建请求失败: %v", err))
+			cancel()
 			time.Sleep(5 * time.Second)
 			continue
 		}
+		
+		// 发送请求
+		printlnUTF8("发送Telegram请求...")
+		// 使用与setupNetwork函数中相同的代理设置
+		client := &http.Client{
+			Timeout: 30 * time.Second,
+		}
+		resp, err := client.Do(req)
+		if err != nil {
+			printlnUTF8(fmt.Sprintf("获取更新失败: %v", err))
+			cancel()
+			time.Sleep(5 * time.Second)
+			continue
+		}
+		
+		// 确保响应体被关闭
+		defer resp.Body.Close()
+		defer cancel()
+		
+		printlnUTF8(fmt.Sprintf("获取更新成功，状态码: %d", resp.StatusCode))
+		
+		// 读取响应体
+		responseBody, err := io.ReadAll(resp.Body)
+		if err != nil {
+			printlnUTF8(fmt.Sprintf("读取响应体失败: %v", err))
+			time.Sleep(5 * time.Second)
+			continue
+		}
+		
+		// 打印响应体
+		printlnUTF8(fmt.Sprintf("响应体: %s", string(responseBody)))
 		
 		// 解析响应
 		var result struct {
@@ -1547,15 +1701,27 @@ func telegramPolling() {
 					Text string `json:"text"`
 				} `json:"message"`
 			} `json:"result"`
+			Error struct {
+				Code    int    `json:"code"`
+				Message string `json:"message"`
+			} `json:"error"`
 		}
 		
-		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		if err := json.Unmarshal(responseBody, &result); err != nil {
 			printlnUTF8(fmt.Sprintf("解析更新失败: %v", err))
-			resp.Body.Close()
 			time.Sleep(5 * time.Second)
 			continue
 		}
-		resp.Body.Close()
+		
+		// 检查是否有错误
+		if !result.Ok {
+			printlnUTF8(fmt.Sprintf("Telegram API错误: %d - %s", result.Error.Code, result.Error.Message))
+			time.Sleep(5 * time.Second)
+			continue
+		}
+		
+		// 打印响应
+		printlnUTF8(fmt.Sprintf("获取到 %d 条更新", len(result.Result)))
 		
 		// 处理消息
 		for _, update := range result.Result {
@@ -1573,14 +1739,49 @@ func telegramPolling() {
 				chatIds[chatID] = true
 				printlnUTF8(fmt.Sprintf("存储chat_id: %d", chatID))
 				
+				// 检查用户状态
+				stateMutex.Lock()
+				state, exists := userStates[chatID]
+				stateMutex.Unlock()
+				
+				// 如果用户有状态，处理状态相关的输入
+				if exists {
+					handleUserState(chatID, text, state)
+					continue
+				}
+				
 				// 处理命令
-				if strings.HasPrefix(text, "/add") {
-					handleAddCommand(chatID, text)
-				} else if strings.HasPrefix(text, "/remove") {
-					handleRemoveCommand(chatID, text)
-				} else if text == "/list" {
+				trimmedText := strings.TrimSpace(text)
+				// 调试日志：打印处理命令前的信息
+				printlnUTF8("=== 处理命令 ===")
+				printlnUTF8(fmt.Sprintf("原始文本: '%s'", text))
+				printlnUTF8(fmt.Sprintf("去除空格后: '%s'", trimmedText))
+				
+				// 处理 /add 命令
+				if strings.HasPrefix(trimmedText, "/add") {
+					// 检查是否是单独的 /add 命令
+					if trimmedText == "/add" {
+						// 开始一步一步添加用户
+						printlnUTF8("调用 startAddUser")
+						startAddUser(chatID)
+					} else {
+						// 兼容旧格式
+						printlnUTF8("调用 handleAddCommand (旧格式)")
+						handleAddCommand(chatID, text)
+					}
+				} else if strings.HasPrefix(trimmedText, "/remove") {
+					// 检查是否是单独的 /remove 命令
+					if trimmedText == "/remove" {
+						// 开始一步一步删除用户
+						startRemoveUser(chatID)
+					} else {
+						// 兼容旧格式
+						handleRemoveCommand(chatID, text)
+					}
+				} else if trimmedText == "/list" {
+					printlnUTF8("调用 handleListCommand")
 					handleListCommand(chatID)
-				} else if text == "/help" {
+				} else if trimmedText == "/help" {
 					handleHelpCommand(chatID)
 				} else {
 					sendTelegramMessage(chatID, "请使用 /help 查看可用命令")
