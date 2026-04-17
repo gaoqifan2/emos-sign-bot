@@ -1539,8 +1539,7 @@ func checkinUsers() {
 				usersMutex.Unlock()
 				saveData()
 			}
-		}
-		// 固定时间签到
+		} else {
 			parts := strings.Split(user.Time, ":")
 			printlnUTF8(fmt.Sprintf("固定时间签到: user=%s, time=%s, split parts=%v", truncateToken(user.Token), user.Time, parts))
 			if len(parts) >= 2 {
@@ -1567,6 +1566,7 @@ func checkinUsers() {
 			} else {
 				printlnUTF8(fmt.Sprintf("用户 %s 的时间格式无效: %s", truncateToken(user.Token), user.Time))
 			}
+		}
 	}
 }
 
