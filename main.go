@@ -24,9 +24,9 @@ type Config struct {
 	ApiBaseURL       string `json:"api_base_url"`
 	TelegramBotToken string `json:"telegram_bot_token"`
 	TelegramApiURL   string `json:"telegram_api_url"`
-	ProxyURL         string `json:"proxy_url"` // 代理URL
+	ProxyURL         string `json:"proxy_url"`       // 代理URL
 	EnableTelegram   bool   `json:"enable_telegram"` // 是否启用Telegram
-	DataFile         string `json:"data_file"` // 数据文件路径
+	DataFile         string `json:"data_file"`       // 数据文件路径
 }
 
 // 用户信息
@@ -41,9 +41,9 @@ type User struct {
 
 // 签到结果
 type CheckinResult struct {
-	SignIndex       int `json:"sign_index"`
-	EarnPoint       int `json:"earn_point"`
-	ContinuousDays  int `json:"continuous_days"`
+	SignIndex      int `json:"sign_index"`
+	EarnPoint      int `json:"earn_point"`
+	ContinuousDays int `json:"continuous_days"`
 }
 
 // 用户信息
@@ -53,8 +53,8 @@ type UserInfo struct {
 
 // 数据存储结构
 type DataStorage struct {
-	Users   []User          `json:"users"`
-	ChatIds map[int64]bool  `json:"chat_ids"`
+	Users   []User         `json:"users"`
+	ChatIds map[int64]bool `json:"chat_ids"`
 }
 
 var (
@@ -72,12 +72,12 @@ var (
 type StateType string
 
 const (
-	StateIdle          StateType = "idle"
-	StateWaitToken     StateType = "wait_token"
-	StateWaitMode      StateType = "wait_mode"
-	StateWaitTime      StateType = "wait_time"
-	StateWaitRemark    StateType = "wait_remark"
-	StateWaitRemoveOpt StateType = "wait_remove_opt"
+	StateIdle           StateType = "idle"
+	StateWaitToken      StateType = "wait_token"
+	StateWaitMode       StateType = "wait_mode"
+	StateWaitTime       StateType = "wait_time"
+	StateWaitRemark     StateType = "wait_remark"
+	StateWaitRemoveOpt  StateType = "wait_remove_opt"
 	StateWaitRemoveUser StateType = "wait_remove_user"
 )
 
@@ -98,7 +98,7 @@ func initLog() {
 		return
 	}
 	defer logFile.Close()
-	
+
 	// 写入初始化信息
 	initMessage := fmt.Sprintf("日志文件初始化 - %s\n", time.Now().Format(time.RFC3339))
 	_, err = logFile.Write([]byte(initMessage))
@@ -114,7 +114,7 @@ func writeLog(s string) {
 	if len(s) > 0 && s[len(s)-1] != '\n' {
 		s += "\n"
 	}
-	
+
 	// 打开或创建日志文件
 	logFile, err := os.OpenFile("log.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
@@ -123,7 +123,7 @@ func writeLog(s string) {
 		return
 	}
 	defer logFile.Close()
-	
+
 	// 写入日志
 	_, err = logFile.Write([]byte(s))
 	if err != nil {
@@ -141,13 +141,13 @@ func printlnUTF8(s string) {
 			os.Stderr.Write([]byte(fmt.Sprintf("printlnUTF8 panic: %v\n", r)))
 		}
 	}()
-	
+
 	n := len(s)
 	if n > 0 && s[n-1] != '\n' {
 		s += "\n"
 	}
 	n = len(s)
-	
+
 	// 同时输出到日志文件
 	defer func() {
 		if r := recover(); r != nil {
@@ -156,7 +156,7 @@ func printlnUTF8(s string) {
 		}
 	}()
 	writeLog(s)
-	
+
 	// 直接使用fmt.Println函数
 	fmt.Println(s)
 }
@@ -164,10 +164,10 @@ func printlnUTF8(s string) {
 func main() {
 	// 初始化日志文件
 	initLog()
-	
+
 	// 初始化随机种子
 	rand.Seed(time.Now().UnixNano())
-	
+
 	// 初始化北京时间时区
 	var err error
 	beijingLoc, err = time.LoadLocation("Asia/Shanghai")
@@ -180,13 +180,13 @@ func main() {
 
 	// 初始化配置
 	initConfig()
-	
+
 	// 网络设置：强制使用IPv4并支持代理
 	setupNetwork()
-	
+
 	// 加载数据
 	loadData()
-	
+
 	// 测试日志写入
 	printlnUTF8("测试日志写入功能")
 	printlnUTF8("这是一条中文测试消息")
@@ -271,8 +271,8 @@ func initConfig() {
 		TelegramBotToken: "8754758110:AAGscR-51usqNuB6hkEld7ovO_eQm5w-zCs",
 		TelegramApiURL:   "https://api.telegram.org/bot",
 		ProxyURL:         "http://127.0.0.1:7897", // 代理URL，根据实际情况修改
-		EnableTelegram:   true, // 是否启用Telegram
-		DataFile:         "data.json", // 数据文件路径
+		EnableTelegram:   true,                    // 是否启用Telegram
+		DataFile:         "data.json",             // 数据文件路径
 	}
 }
 
@@ -280,7 +280,7 @@ func initConfig() {
 func loadData() {
 	usersMutex.Lock()
 	defer usersMutex.Unlock()
-	
+
 	// 读取数据文件
 	data, err := os.ReadFile(config.DataFile)
 	if err != nil {
@@ -291,20 +291,20 @@ func loadData() {
 		printlnUTF8(fmt.Sprintf("读取数据文件失败: %v，使用空数据", err))
 		return
 	}
-	
+
 	// 解析数据
 	var storage DataStorage
 	if err := json.Unmarshal(data, &storage); err != nil {
 		printlnUTF8(fmt.Sprintf("解析数据文件失败: %v，使用空数据", err))
 		return
 	}
-	
+
 	// 加载数据
 	users = storage.Users
 	if storage.ChatIds != nil {
 		chatIds = storage.ChatIds
 	}
-	
+
 	// 重置所有随机签到用户的随机时间，以便在程序启动时重新生成
 	resetCount := 0
 	for i, user := range users {
@@ -313,41 +313,41 @@ func loadData() {
 			resetCount++
 		}
 	}
-	
+
 	// 只有当有用户数据并且重置了随机时间时，才保存数据
 	if len(users) > 0 && resetCount > 0 {
 		saveData()
 		printlnUTF8(fmt.Sprintf("已重置 %d 个随机签到用户的随机时间，将在启动后重新生成", resetCount))
 	}
-	
+
 	printlnUTF8(fmt.Sprintf("成功加载数据: %d 个用户，%d 个聊天ID", len(users), len(chatIds)))
 }
 
 // 保存数据
 func saveData() {
 	printlnUTF8(fmt.Sprintf("开始保存数据: %d 个用户，%d 个聊天ID", len(users), len(chatIds)))
-	
+
 	// 准备数据
 	storage := DataStorage{
 		Users:   users,
 		ChatIds: chatIds,
 	}
-	
+
 	// 序列化数据
 	data, err := json.MarshalIndent(storage, "", "  ")
 	if err != nil {
 		printlnUTF8(fmt.Sprintf("序列化数据失败: %v", err))
 		return
 	}
-	
+
 	printlnUTF8(fmt.Sprintf("序列化成功，数据长度: %d 字节", len(data)))
-	
+
 	// 写入文件
 	if err := os.WriteFile(config.DataFile, data, 0644); err != nil {
 		printlnUTF8(fmt.Sprintf("写入数据文件失败: %v", err))
 		return
 	}
-	
+
 	printlnUTF8(fmt.Sprintf("成功保存数据到 %s: %d 个用户，%d 个聊天ID", config.DataFile, len(users), len(chatIds)))
 }
 
@@ -361,10 +361,10 @@ func setupNetwork() {
 			return d.DialContext(ctx, "tcp4", address)
 		},
 	}
-	
+
 	// 配置代理：优先使用系统环境变量中的代理设置
 	proxyFunc := http.ProxyFromEnvironment
-	
+
 	// 如果配置了代理URL，则使用配置的代理
 	if config.ProxyURL != "" {
 		proxyURL, err := url.Parse(config.ProxyURL)
@@ -378,7 +378,7 @@ func setupNetwork() {
 	} else {
 		printlnUTF8("使用系统环境变量中的代理")
 	}
-	
+
 	// 支持代理设置，强制使用IPv4
 	http.DefaultTransport = &http.Transport{
 		Proxy: proxyFunc,
@@ -393,24 +393,24 @@ func setupNetwork() {
 		},
 		TLSHandshakeTimeout: 10 * time.Second,
 	}
-	
+
 	// 测试代理连接
 	testProxyConnection()
-	
+
 	printlnUTF8("网络设置完成: 使用IPv4和代理支持")
 }
 
 // 测试代理连接
 func testProxyConnection() {
 	printlnUTF8("测试代理连接...")
-	
+
 	// 创建一个带超时的上下文
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	
+
 	// 测试连接到Telegram API
 	url := "https://api.telegram.org/bot" + config.TelegramBotToken + "/getMe"
-	
+
 	// 创建请求
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
@@ -419,13 +419,13 @@ func testProxyConnection() {
 		printlnUTF8("系统将继续运行，但Telegram功能可能受限")
 		return
 	}
-	
+
 	// 使用配置的Transport
 	client := &http.Client{
 		Timeout:   5 * time.Second,
 		Transport: http.DefaultTransport,
 	}
-	
+
 	resp, err := client.Do(req)
 	if err != nil {
 		printlnUTF8(fmt.Sprintf("代理测试失败: %v", err))
@@ -488,7 +488,7 @@ func registerUser(w http.ResponseWriter, r *http.Request) {
 		})
 		printlnUTF8(fmt.Sprintf("添加新用户: %s", req.Token))
 	}
-	
+
 	// 保存数据
 	saveData()
 
@@ -539,7 +539,7 @@ func removeUser(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "用户不存在", http.StatusNotFound)
 		return
 	}
-	
+
 	// 保存数据
 	saveData()
 
@@ -612,7 +612,7 @@ func handleWebhook(w http.ResponseWriter, r *http.Request) {
 		printlnUTF8("=== 处理命令 ===")
 		printlnUTF8(fmt.Sprintf("原始文本: '%s'", text))
 		printlnUTF8(fmt.Sprintf("去除空格后: '%s'", trimmedText))
-		
+
 		// 处理 /add 命令
 		if strings.HasPrefix(trimmedText, "/add") {
 			// 检查是否是单独的 /add 命令
@@ -725,7 +725,7 @@ func handleWaitToken(chatID int64, text string) {
 	userStates[chatID] = UserState{
 		Type: StateWaitMode,
 		Data: map[string]string{
-			"token":     text,
+			"token":    text,
 			"username": userInfo.Username,
 		},
 		CreateTime: time.Now(),
@@ -968,13 +968,13 @@ func handleAddCommand(chatID int64, text string) {
 	printlnUTF8("=== handleAddCommand called ===")
 	printlnUTF8(fmt.Sprintf("Full text: '%s'", text))
 	printlnUTF8(fmt.Sprintf("Text length: %d", len(text)))
-	
+
 	parts := strings.Split(text, " ")
-	
+
 	// 调试日志：打印分割后的部分
 	printlnUTF8(fmt.Sprintf("Split parts: %v", parts))
 	printlnUTF8(fmt.Sprintf("Parts count: %d", len(parts)))
-	
+
 	// 过滤空字符串元素
 	var filteredParts []string
 	for i, part := range parts {
@@ -983,11 +983,11 @@ func handleAddCommand(chatID int64, text string) {
 			filteredParts = append(filteredParts, part)
 		}
 	}
-	
+
 	// 调试日志：打印过滤后的部分
 	printlnUTF8(fmt.Sprintf("Filtered parts: %v", filteredParts))
 	printlnUTF8(fmt.Sprintf("Filtered parts count: %d", len(filteredParts)))
-	
+
 	if len(filteredParts) < 3 {
 		sendTelegramMessage(chatID, "格式错误，请使用: /add token time [random] [remark]")
 		return
@@ -999,7 +999,7 @@ func handleAddCommand(chatID int64, text string) {
 	timeStr = strings.ReplaceAll(timeStr, "：", ":")
 	random := false
 	remark := ""
-	
+
 	// 检查是否有random参数
 	if len(filteredParts) > 3 {
 		if filteredParts[3] == "random" {
@@ -1014,7 +1014,7 @@ func handleAddCommand(chatID int64, text string) {
 			remark = strings.Join(filteredParts[3:], " ")
 		}
 	}
-	
+
 	// 调试日志：打印解析后的参数
 	printlnUTF8(fmt.Sprintf("Parsed token: '%s'", truncateToken(token)))
 	printlnUTF8(fmt.Sprintf("Parsed time: '%s'", timeStr))
@@ -1031,11 +1031,11 @@ func handleAddCommand(chatID int64, text string) {
 		now := time.Now()
 		hour := now.Hour()
 		minute := now.Minute()
-		
+
 		// 生成当前小时或之后的小时
 		hourRange := 23 - hour
 		if hourRange > 0 {
-			randomHour := hour + rand.Intn(hourRange + 1)
+			randomHour := hour + rand.Intn(hourRange+1)
 			// 如果是当前小时，生成当前分钟之后的分钟
 			if randomHour == hour {
 				minuteRange := 59 - minute
@@ -1067,7 +1067,7 @@ func handleAddCommand(chatID int64, text string) {
 		}
 		printlnUTF8(fmt.Sprintf("生成随机时间: %s", randomTime))
 	}
-	
+
 	// 获取用户信息（优先使用状态中保存的username）
 	username := ""
 	// 检查是否在状态中保存了username
@@ -1079,7 +1079,7 @@ func handleAddCommand(chatID int64, text string) {
 		}
 	}
 	stateMutex.Unlock()
-	
+
 	// 如果没有保存的username，尝试获取
 	if username == "" {
 		userInfo, err := getUserInfo(token)
@@ -1122,13 +1122,13 @@ func handleAddCommand(chatID int64, text string) {
 		})
 		printlnUTF8(fmt.Sprintf("添加新用户: %s, 用户名: %s, 备注: %s", truncateToken(token), username, remark))
 	}
-	
+
 	// 保存数据
 	saveData()
-	
+
 	// 发送成功消息
 	sendTelegramMessage(chatID, "用户添加成功！")
-	
+
 	// 立即检查新添加的用户是否需要签到
 	go checkinUsers()
 }
@@ -1295,26 +1295,26 @@ func sendTelegramMessage(chatID int64, text string) {
 	apiURL := fmt.Sprintf("%s%s/sendMessage", config.TelegramApiURL, config.TelegramBotToken)
 	printlnUTF8(fmt.Sprintf("发送消息URL: %s", apiURL))
 	printlnUTF8(fmt.Sprintf("发送消息数据: %s", string(data)))
-	
+
 	// 创建一个带超时的上下文
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	
+
 	// 创建请求
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, apiURL, strings.NewReader(string(data)))
 	if err != nil {
 		printlnUTF8(fmt.Sprintf("创建请求失败: %v", err))
 		return
 	}
-	
+
 	// 设置请求头
 	req.Header.Set("Content-Type", "application/json")
-	
+
 	// 使用与telegramPolling函数相同的HTTP客户端设置
 	client := &http.Client{
 		Timeout: 30 * time.Second,
 	}
-	
+
 	// 发送请求
 	resp, err := client.Do(req)
 	if err != nil {
@@ -1329,7 +1329,7 @@ func sendTelegramMessage(chatID int64, text string) {
 		printlnUTF8(fmt.Sprintf("读取响应失败: %v", err))
 		return
 	}
-	
+
 	printlnUTF8(fmt.Sprintf("发送消息响应状态码: %d", resp.StatusCode))
 	printlnUTF8(fmt.Sprintf("发送消息响应体: %s", string(responseBody)))
 
@@ -1414,7 +1414,7 @@ func checkinUsers() {
 	currentHour := now.Hour()
 	currentMinute := now.Minute()
 	currentSecond := now.Second()
-	
+
 	// 如果是每天的00:00:00，重置所有用户的随机时间
 	if currentHour == 0 && currentMinute == 0 && currentSecond == 0 {
 		for i, user := range users {
@@ -1425,7 +1425,7 @@ func checkinUsers() {
 		saveData()
 		printlnUTF8("=== 新的一天开始，重置所有用户的随机时间 ===")
 	}
-	
+
 	userCopy := make([]User, len(users))
 	copy(userCopy, users)
 	usersMutex.Unlock()
@@ -1438,7 +1438,7 @@ func checkinUsers() {
 	for i, user := range userCopy {
 		// 调试日志：打印用户信息
 		printlnUTF8(fmt.Sprintf("用户 %d: Token=%s, Time=%s, Random=%v", i+1, truncateToken(user.Token), user.Time, user.Random))
-		
+
 		if user.Random {
 			// 随机签到，每天随机选择一个时间
 			// 检查是否已经生成今天的随机时间
@@ -1452,7 +1452,7 @@ func checkinUsers() {
 				// 使用外部的currentHour和currentMinute和currentSecond，确保时间一致性
 				hourRange := 23 - currentHour
 				if hourRange > 0 {
-					randomHour = currentHour + rand.Intn(hourRange + 1)
+					randomHour = currentHour + rand.Intn(hourRange+1)
 				} else {
 					// 当前时间是23点，只能选择23点
 					randomHour = 23
@@ -1510,10 +1510,10 @@ func checkinUsers() {
 					}
 				}
 			}
-			
+
 			// 恢复秒级检查
 			printlnUTF8(fmt.Sprintf("随机签到: user=%s, 随机时间=%s, 当前时间=%02d:%02d:%02d", truncateToken(user.Token), user.RandomTime, currentHour, currentMinute, currentSecond))
-			
+
 			if randomHour == currentHour && randomMinute == currentMinute && randomSecond == currentSecond {
 				printlnUTF8(fmt.Sprintf("开始随机签到用户: %s", truncateToken(user.Token)))
 				go performCheckin(user.Token)
@@ -1521,12 +1521,12 @@ func checkinUsers() {
 				user.RandomTime = "checked"
 				needUpdate = true
 			}
-			
+
 			// 跳过已经签到的用户，不再生成随机时间
 			if user.RandomTime == "checked" {
 				continue
 			}
-			
+
 			// 如果需要更新用户信息，保存到数据中
 			if needUpdate {
 				usersMutex.Lock()
@@ -1642,31 +1642,133 @@ func checkin(token string) (CheckinResult, error, string) {
 	var result CheckinResult
 	var statusText string
 
-	// 准备多种签到内容，随机选择一个
-	checkinContents := []string{
-		"1",
-		"2",
-		"3",
-		"4",
-		"5",
-		"6",
-		"7",
-		"8",
+	// 准备多种签到内容，随机生成模拟真实用户输入
+	// 定义各种类型的签到内容
+	pureNumbers := []string{
+		"1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15",
+		"16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "30",
+		"66", "88", "99", "100", "111", "222", "333", "444", "555", "666", "777", "888", "999",
+		"520", "1314", "2024", "2025", "1234", "4321", "6666", "8888", "9999",
+		"168", "668", "988", "518", "888", "666", "189", "288", "388", "488",
 	}
-	
-	// 随机选择一个签到内容
-	randomIndex := rand.Intn(len(checkinContents))
-	content := checkinContents[randomIndex]
-	
+
+	chineseText := []string{
+		// 基础签到语
+		"签到", "打卡", "报到", "来了", "到", "在", "好", "到！",
+		// 日常问候
+		"你好", "早上好", "中午好", "下午好", "晚上好", "晚安",
+		"早", "午", "晚", "安", "嗨", "嘿", "哈喽", "嘿呀",
+		// 签到动作
+		"每日签到", "日常打卡", "我来啦", "我来签到了", "准时打卡", "准时报到",
+		"签到成功", "报到成功", "打卡成功", "已签到", "已打卡", "已报到",
+		// 鼓励语
+		"加油", "努力", "冲鸭", "冲", "奋斗", "拼搏", "坚持", "努力奋斗",
+		"今天也要加油", "元气满满", "新的一天", "新的一天开始啦",
+		"又是元气满满的一天", "充满干劲", "干劲十足", "冲冲冲",
+		// 天数相关
+		"第一天", "第二天", "第三天", "第四天", "第五天", "第六天", "第七天",
+		"坚持第1天", "坚持第2天", "坚持第3天", "坚持第4天", "坚持第5天",
+		"打卡第1天", "打卡第2天", "打卡第3天", "连续签到", "连续打卡",
+		// 网络用语
+		"奥利给", "铁汁", "老铁", "集美", "家人们", "兄弟们", "姐妹们",
+		"绝绝子", "YYDS", "永远的神", "666", "针不戳", "喜大普奔",
+		"emo", "打工人", "搬砖", "社畜", "干饭人", "干饭魂",
+		// 表情动作
+		"比心", "点赞", "撒花", "鼓掌", "开心", "高兴", "快乐", "愉快",
+		"摸摸头", "握爪", "勾搭", "飞吻", "拥抱", "挥手",
+		// 其他有趣的中文
+		"哈哈哈哈", "嘿嘿", "嘻嘻", "么么哒", "棒棒哒", "美滋滋", "乐呵呵",
+		"收到", "明白", "了解", "好的", "OK", "yes", "sure", "来了来了",
+		"我来了", "报到报到", "打卡打卡", "签到签到", "日常日常",
+	}
+
+	emojiText := []string{
+		// 单个表情
+		"👍", "✨", "🌟", "💪", "🎉", "✅", "📝", "🏃", "💯", "🔥",
+		"😊", "😄", "😎", "🤞", "✌", "🤝", "👏", "🙌", "💫", "⭐",
+		"🌈", "☀", "🌙", "🌸", "🌺", "🍀", "🎊", "🎁", "🎈", "🎂",
+		"❤️", "🧡", "💛", "�", "💙", "💜", "🖤", "🤍", "💕", "💖",
+		// 双个表情
+		"�👍👍", "✨✨", "🌟🌟", "💪💪", "🎉🎉", "✅✅", "📝📝", "🏃🏃", "💯💯", "🔥🔥",
+		"😊😊", "😄😄", "😎😎", "🤞🤞", "✌✌", "🤝🤝", "👏👏", "🙌🙌", "💫💫", "⭐⭐",
+		"🌈🌈", "☀☀", "🌙🌙", "🌸🌸", "🌺🌺", "🍀🍀", "🎊🎊", "🎁🎁", "🎈🎈", "🎂🎂",
+		"❤️❤️", "🧡🧡", "💛💛", "💚💚", "💙💙", "💜💜", "🖤🖤", "🤍🤍", "💕💕", "💖💖",
+		// 三个表情
+		"👍👍👍", "✨✨✨", "🌟🌟🌟", "💪💪💪", "🎉🎉🎉",
+		"✅✅✅", "📝📝📝", "🏃🏃🏃", "💯💯💯", "🔥🔥🔥",
+	}
+
+	englishText := []string{
+		// 基础英语
+		"checkin", "sign", "here", "yes", "ok", "good", "great", "nice",
+		"check", "sign in", "let's go", "let's do this", "gogogo", "on my way",
+		// 简短英语
+		"hi", "hey", "yo", "sup", "yep", "yeah", "ya", "ok", "okay",
+		"good", "nice", "cool", "wow", "omg", "lol", "haha", "hehe",
+		// 动作英语
+		"let's go", "go go go", "start", "begin", "ready", "set", "go",
+		"work hard", "keep going", "never give up", "stay strong", "stay positive",
+		// 特殊表达
+		"day 1", "day 2", "day 3", "day 100", "day 1000",
+		"count me in", "i'm in", "counting", "1st day", "2nd day",
+		"morning", "afternoon", "evening", "night",
+		"love it", "so cool", "so nice", "so good", "very good",
+	}
+
+	mixedContent := []string{
+		// day系列
+		"day1", "day2", "day3", "day4", "day5", "day6", "day7", "day8", "day9", "day10",
+		"day11", "day12", "day13", "day14", "day15", "day20", "day30", "day50", "day100", "day666",
+		// 日期系列
+		"1/1", "1/2", "2/2", "3/3", "4/4", "5/5", "6/6", "7/7", "8/8", "9/9", "10/10",
+		"today", "tomorrow", "yesterday", "now", "just now", "right now",
+		// 数字+表情
+		"👍1", "👍2", "👍3", "✨1", "✨2", "💪1", "💪2", "🔥1", "🔥2", "✅1", "✅2",
+		"1👍", "2👍", "3👍", "1✨", "2✨", "1💪", "2💪", "1🔥", "2🔥", "1✅", "2✅",
+		// 英文+数字
+		"day1!", "day2!", "day3!", "day4!", "day5!", "check1", "check2", "sign1", "sign2",
+		"test1", "test2", "try1", "try2", "go1", "go2", "start1", "start2",
+		// 混合文字
+		"hello2024", "hello2025", "check2024", "sign2024", "签到1", "签到2", "打卡1", "打卡2",
+		"加油1", "加油2", "冲鸭1", "冲鸭2", "好1", "好2", "到1", "到2",
+		"1打卡", "2打卡", "1签到", "2签到", "1加油", "2加油", "1冲", "2冲",
+		// 有趣组合
+		"👍👍👍", "�💪💪", "🔥🔥🔥", "✅✅✅", "✨✨✨", "🎉🎉🎉",
+		"12345", "54321", "67890", "09876", "11111", "22222", "33333",
+		"100分", "120分", "180分", "�分", "100分!", "120分!",
+	}
+
+	// 随机选择内容类型，然后从该类型中随机选择
+	contentType := rand.Intn(5)
+	var content string
+
+	switch contentType {
+	case 0:
+		// 纯数字
+		content = pureNumbers[rand.Intn(len(pureNumbers))]
+	case 1:
+		// 中文文字
+		content = chineseText[rand.Intn(len(chineseText))]
+	case 2:
+		// Emoji
+		content = emojiText[rand.Intn(len(emojiText))]
+	case 3:
+		// 英文
+		content = englishText[rand.Intn(len(englishText))]
+	case 4:
+		// 混合内容
+		content = mixedContent[rand.Intn(len(mixedContent))]
+	}
+
 	// 将content作为查询参数添加到URL中
 	url := fmt.Sprintf("%s/api/user/sign?content=%s", config.ApiBaseURL, url.QueryEscape(content))
-	
+
 	// 打印请求信息
 	printlnUTF8("=== 签到请求 ===")
 	printlnUTF8(fmt.Sprintf("URL: %s", url))
 	printlnUTF8("Method: PUT")
 	printlnUTF8(fmt.Sprintf("Token: %s", token))
-	
+
 	// 使用PUT方法，请求体为nil
 	req, err := http.NewRequest(http.MethodPut, url, nil)
 	if err != nil {
@@ -1694,7 +1796,7 @@ func checkin(token string) (CheckinResult, error, string) {
 	if err != nil {
 		return result, err, "读取响应失败"
 	}
-	
+
 	// 打印响应体
 	printlnUTF8(fmt.Sprintf("响应体: %s", string(responseBody)))
 
@@ -1727,7 +1829,7 @@ func checkin(token string) (CheckinResult, error, string) {
 
 // 发送签到通知
 func sendCheckinNotification(username string, result CheckinResult, statusText string) {
-	message := fmt.Sprintf("📅 签到通知\n\n用户名: %s\n签到状态: %s\n累计签到: %d 天\n获得萝卜: %d 个\n今日签到排名: %d", 
+	message := fmt.Sprintf("📅 签到通知\n\n用户名: %s\n签到状态: %s\n累计签到: %d 天\n获得萝卜: %d 个\n今日签到排名: %d",
 		username, statusText, result.ContinuousDays, result.EarnPoint, result.SignIndex)
 	for chatID := range chatIds {
 		sendTelegramMessage(chatID, message)
@@ -1751,10 +1853,10 @@ func statusScheduler() {
 // Telegram消息轮询
 func telegramPolling() {
 	printlnUTF8("开始Telegram轮询...")
-	
+
 	// 存储最后处理的消息ID
 	var offset int64 = 0
-	
+
 	for {
 		// 捕获循环中的panic
 		defer func() {
@@ -1762,14 +1864,14 @@ func telegramPolling() {
 				printlnUTF8(fmt.Sprintf("Telegram轮询循环崩溃: %v", r))
 			}
 		}()
-		
+
 		// 调用getUpdates API
 		apiURL := fmt.Sprintf("%s%s/getUpdates?offset=%d&timeout=30", config.TelegramApiURL, config.TelegramBotToken, offset)
 		printlnUTF8(fmt.Sprintf("获取Telegram更新: %s", apiURL))
-		
+
 		// 创建一个带超时的上下文
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		
+
 		// 创建请求
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiURL, nil)
 		if err != nil {
@@ -1778,7 +1880,7 @@ func telegramPolling() {
 			time.Sleep(5 * time.Second)
 			continue
 		}
-		
+
 		// 发送请求
 		printlnUTF8("发送Telegram请求...")
 		// 使用与setupNetwork函数中相同的代理设置
@@ -1792,25 +1894,25 @@ func telegramPolling() {
 			time.Sleep(5 * time.Second)
 			continue
 		}
-		
+
 		printlnUTF8(fmt.Sprintf("获取更新成功，状态码: %d", resp.StatusCode))
-		
+
 		// 读取响应体
 		responseBody, err := io.ReadAll(resp.Body)
 		// 关闭响应体
 		resp.Body.Close()
 		// 取消上下文
 		cancel()
-		
+
 		if err != nil {
 			printlnUTF8(fmt.Sprintf("读取响应体失败: %v", err))
 			time.Sleep(5 * time.Second)
 			continue
 		}
-		
+
 		// 打印响应体
 		printlnUTF8(fmt.Sprintf("响应体: %s", string(responseBody)))
-		
+
 		// 解析响应
 		var result struct {
 			Ok     bool `json:"ok"`
@@ -1828,57 +1930,57 @@ func telegramPolling() {
 				Message string `json:"message"`
 			} `json:"error"`
 		}
-		
+
 		if err := json.Unmarshal(responseBody, &result); err != nil {
 			printlnUTF8(fmt.Sprintf("解析更新失败: %v", err))
 			time.Sleep(5 * time.Second)
 			continue
 		}
-		
+
 		// 检查是否有错误
 		if !result.Ok {
 			printlnUTF8(fmt.Sprintf("Telegram API错误: %d - %s", result.Error.Code, result.Error.Message))
 			time.Sleep(5 * time.Second)
 			continue
 		}
-		
+
 		// 打印响应
 		printlnUTF8(fmt.Sprintf("获取到 %d 条更新", len(result.Result)))
-		
+
 		// 处理消息
 		for _, update := range result.Result {
 			// 更新offset
 			if update.UpdateID >= offset {
 				offset = update.UpdateID + 1
 			}
-			
+
 			// 处理消息
 			if update.Message.Text != "" {
 				chatID := update.Message.Chat.ID
 				text := update.Message.Text
-				
+
 				// 存储chat_id
 				chatIds[chatID] = true
 				printlnUTF8(fmt.Sprintf("存储chat_id: %d", chatID))
-				
+
 				// 检查用户状态
 				stateMutex.Lock()
 				state, exists := userStates[chatID]
 				stateMutex.Unlock()
-				
+
 				// 如果用户有状态，处理状态相关的输入
 				if exists {
 					handleUserState(chatID, text, state)
 					continue
 				}
-				
+
 				// 处理命令
 				trimmedText := strings.TrimSpace(text)
 				// 调试日志：打印处理命令前的信息
 				printlnUTF8("=== 处理命令 ===")
 				printlnUTF8(fmt.Sprintf("原始文本: '%s'", text))
 				printlnUTF8(fmt.Sprintf("去除空格后: '%s'", trimmedText))
-				
+
 				// 处理 /add 命令
 				if strings.HasPrefix(trimmedText, "/add") {
 					// 检查是否是单独的 /add 命令
@@ -1910,7 +2012,7 @@ func telegramPolling() {
 				}
 			}
 		}
-		
+
 		// 短暂休眠，避免请求过于频繁
 		time.Sleep(1 * time.Second)
 	}

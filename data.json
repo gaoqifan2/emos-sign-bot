@@ -2,70 +2,137 @@
   "users": [
     {
       "token": "1047_ow2NHeo3HyzDSxvl",
-      "time": "22:32:10",
-      "random": false,
-      "random_time": "",
-      "remark": "",
+      "time": "20:00:00",
+      "random": true,
+      "random_time": "08:33:13",
+      "remark": "f1ne",
       "username": "f1ne"
     },
     {
       "token": "1072_27phBMQqF1tTuiUN",
-      "time": "00:00",
+      "time": "00:00:00",
       "random": true,
-      "random_time": "22:26:29",
+      "random_time": "14:38:37",
       "remark": "田曦薇",
       "username": "f1neboss"
     },
     {
       "token": "4968_unXmpyhUC3oPVpHa",
-      "time": "00:00",
+      "time": "00:00:00",
       "random": true,
-      "random_time": "23:02:31",
+      "random_time": "09:53:10",
       "remark": "f1bb",
       "username": "f1negege"
     },
     {
-      "token": "5778_PnB140t5IRpydejF",
-      "time": "00:00",
-      "random": false,
-      "random_time": "",
-      "remark": "Ob一串字母大人",
-      "username": "tryuhark"
-    },
-    {
       "token": "3945_I498pg8pK4AdW7iU",
-      "time": "03:27",
+      "time": "03:27:00",
       "random": true,
-      "random_time": "23:54:30",
+      "random_time": "09:46:11",
       "remark": "xixi小号",
       "username": "tockatv"
     },
     {
       "token": "5693_Oe0LDK1gZTupLp3B",
-      "time": "13:14",
-      "random": false,
-      "random_time": "",
+      "time": "08:30:00",
+      "random": true,
+      "random_time": "13:51:52",
       "remark": "",
       "username": "a9261288"
     },
     {
+      "token": "1073_FLhu66cW63DS0mv0",
+      "time": "05:20:00",
+      "random": true,
+      "random_time": "22:49:48",
+      "remark": "能不能给我5个胡萝卜",
+      "username": "byz12345"
+    },
+    {
       "token": "5873_VYgUu82jj2wnLnTH",
-      "time": "00:00",
-      "random": false,
-      "random_time": "",
-      "remark": "",
+      "time": "08:30:00",
+      "random": true,
+      "random_time": "15:55:25",
+      "remark": "TENET",
       "username": "wst4288"
+    },
+    {
+      "token": "1370_NzrCMoHAl96NkCta",
+      "time": "08:30:00",
+      "random": true,
+      "random_time": "09:48:30",
+      "remark": "",
+      "username": "ss1234"
+    },
+    {
+      "token": "5103_p13dfzTzd4F74tZu",
+      "time": "07:00:00",
+      "random": true,
+      "random_time": "23:01:49",
+      "remark": "",
+      "username": "anhom"
+    },
+    {
+      "token": "5954_ZLCo9CfG4pDQctcG",
+      "time": "04:32:00",
+      "random": true,
+      "random_time": "09:53:49",
+      "remark": "xixi大号",
+      "username": "t0cka"
+    },
+    {
+      "token": "1369_LvKRVkrt56GHpll7",
+      "time": "01:30:00",
+      "random": true,
+      "random_time": "09:03:45",
+      "remark": "女明星",
+      "username": "caiying"
+    },
+    {
+      "token": "6043_naAD2uwOiYIYRtA4",
+      "time": "01:30:00",
+      "random": true,
+      "random_time": "00:49:33",
+      "remark": "章若楠",
+      "username": "ruonan"
+    },
+    {
+      "token": "5022_pGGeH7wnrXsgN3ay",
+      "time": "04:36:00",
+      "random": true,
+      "random_time": "12:31:37",
+      "remark": "瓶瓶",
+      "username": "sarey"
+    },
+    {
+      "token": "1588_3kA4IRy3EbQiQoTm",
+      "time": "01:00:01",
+      "random": true,
+      "random_time": "08:17:00",
+      "remark": "魂淡",
+      "username": "chenhundan"
     }
   ],
   "chat_ids": {
+    "1052414702": true,
     "1109870106": true,
     "1206469254": true,
+    "1796323345": true,
+    "1928666647": true,
     "479378756": true,
     "5709738255": true,
+    "5761282798": true,
     "5805990999": true,
+    "5885734264": true,
+    "5898868395": true,
+    "6554440034": true,
+    "6589338265": true,
+    "6637376180": true,
+    "679942267": true,
     "7346917792": true,
     "7520240928": true,
     "7712965941": true,
+    "7718013348": true,
     "7976277178": true,
     "8230046662": true
   }
