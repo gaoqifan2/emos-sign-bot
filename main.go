@@ -259,6 +259,16 @@ func main() {
 		statusScheduler()
 	}()
 
+	// Token更换提醒调度器 - 每隔30分钟发送提醒
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				printlnUTF8(fmt.Sprintf("Token提醒调度器崩溃: %v", r))
+			}
+		}()
+		tokenReminderScheduler()
+	}()
+
 	// 保持程序运行
 	select {}
 }
@@ -1847,6 +1857,46 @@ func statusScheduler() {
 		userCount := len(users)
 		usersMutex.Unlock()
 		printlnUTF8(fmt.Sprintf("[%s] 系统运行中 - 当前用户: %d, 当前chat_ids: %d", time.Now().In(beijingLoc).Format("15:04:05"), userCount, len(chatIds)))
+	}
+}
+
+// Token更换提醒调度器 - 每隔30分钟提醒用户更换token
+func tokenReminderScheduler() {
+	// 发送初始提醒
+	sendTokenReminder()
+
+	// 每隔30分钟发送一次提醒
+	ticker := time.NewTicker(30 * time.Minute)
+	defer ticker.Stop()
+
+	for {
+		<-ticker.C
+		sendTokenReminder()
+	}
+}
+
+// 发送Token更换提醒消息
+func sendTokenReminder() {
+	message := `🔔 重要提醒！
+
+Token即将重置，请及时更换您的签到Token！
+
+为了避免断签，请尽快使用 /add 命令重新添加您的账户。
+
+操作步骤：
+1. 发送 /add 命令
+2. 按照提示输入新的Token
+3. 设置签到时间（固定时间或随机）
+4. 添加备注（可选）
+
+如果Token过期导致断签，之前的连续签到天数将会清零，请务必及时更新！
+
+如有疑问，请随时联系管理员。`
+
+	printlnUTF8("发送Token更换提醒通知...")
+
+	for chatID := range chatIds {
+		sendTelegramMessage(chatID, message)
 	}
 }
 

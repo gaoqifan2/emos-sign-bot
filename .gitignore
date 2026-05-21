@@ -1,0 +1,28 @@
+# 编译的二进制文件
+*.exe
+*.dll
+*.so
+*.dylib
+
+# 日志文件
+*.log
+log.txt
+error.log
+debug.log
+
+# 数据文件
+data.json
+
+# 临时文件
+*.tmp
+*.bak
+*.swp
+
+# Node.js (如果不需要)
+node_modules/
+package-lock.json
+
+# IDE
+.vscode/
+.idea/
+*.iml
