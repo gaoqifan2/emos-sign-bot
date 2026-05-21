@@ -280,7 +280,7 @@ func initConfig() {
 		ApiBaseURL:       "https://emos.best",
 		TelegramBotToken: "8754758110:AAGscR-51usqNuB6hkEld7ovO_eQm5w-zCs",
 		TelegramApiURL:   "https://api.telegram.org/bot",
-		ProxyURL:         "http://127.0.0.1:7897", // 代理URL，根据实际情况修改
+		ProxyURL:         "", // 代理URL，留空表示不使用代理
 		EnableTelegram:   true,                    // 是否启用Telegram
 		DataFile:         "data.json",             // 数据文件路径
 	}
