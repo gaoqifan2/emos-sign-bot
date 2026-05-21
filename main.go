@@ -280,9 +280,9 @@ func initConfig() {
 		ApiBaseURL:       "https://emos.best",
 		TelegramBotToken: "8754758110:AAGscR-51usqNuB6hkEld7ovO_eQm5w-zCs",
 		TelegramApiURL:   "https://api.telegram.org/bot",
-		ProxyURL:         "", // 代理URL，留空表示不使用代理
-		EnableTelegram:   true,                    // 是否启用Telegram
-		DataFile:         "data.json",             // 数据文件路径
+		ProxyURL:         "",          // 代理URL，留空表示不使用代理
+		EnableTelegram:   true,        // 是否启用Telegram
+		DataFile:         "data.json", // 数据文件路径
 	}
 }
 
@@ -1384,7 +1384,7 @@ func needSecondLevelCheck() bool {
 	currentHour := now.Hour()
 	currentMinute := now.Minute()
 
-	// 检查是否有用户的签到时间在接下来的10分钟内
+	// 检查是否有用户的签到时间在接下来的1分钟内
 	for _, user := range users {
 		var targetHour, targetMinute int
 		var targetTime string
@@ -1406,8 +1406,8 @@ func needSecondLevelCheck() bool {
 				timeDiff += 24 * 60 // 跨天
 			}
 
-			// 如果在10分钟内，需要秒级检查
-			if timeDiff <= 10 {
+			// 如果在1分钟内，需要秒级检查
+			if timeDiff <= 1 {
 				return true
 			}
 		}
@@ -1860,8 +1860,18 @@ func statusScheduler() {
 	}
 }
 
-// Token更换提醒调度器 - 每隔30分钟提醒用户更换token
+// Token更换提醒调度器 - 每隔30分钟提醒用户更换token，在指定时间结束
 func tokenReminderScheduler() {
+	// 设置提醒结束时间：2026年5月22日00:00:00
+	endTime := time.Date(2026, 5, 22, 0, 0, 0, 0, beijingLoc)
+
+	// 检查是否已经过了结束时间
+	now := time.Now().In(beijingLoc)
+	if now.After(endTime) {
+		printlnUTF8("Token提醒已在2026-05-22 00:00结束")
+		return
+	}
+
 	// 发送初始提醒
 	sendTokenReminder()
 
@@ -1871,6 +1881,14 @@ func tokenReminderScheduler() {
 
 	for {
 		<-ticker.C
+
+		// 检查是否已经过了结束时间
+		now = time.Now().In(beijingLoc)
+		if now.After(endTime) {
+			printlnUTF8("Token提醒已在2026-05-22 00:00结束")
+			return
+		}
+
 		sendTokenReminder()
 	}
 }
