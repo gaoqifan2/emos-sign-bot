@@ -20,23 +20,30 @@ import (
 
 // 配置信息
 type Config struct {
-	Port             int    `json:"port"`
-	ApiBaseURL       string `json:"api_base_url"`
-	TelegramBotToken string `json:"telegram_bot_token"`
-	TelegramApiURL   string `json:"telegram_api_url"`
-	ProxyURL         string `json:"proxy_url"`       // 代理URL
-	EnableTelegram   bool   `json:"enable_telegram"` // 是否启用Telegram
-	DataFile         string `json:"data_file"`       // 数据文件路径
+	Port                int    `json:"port"`
+	ApiBaseURL          string `json:"api_base_url"`
+	PublicBaseURL       string `json:"public_base_url"`
+	EmosProviderBot     string `json:"emos_provider_bot"`
+	EmosUserID          string `json:"emos_user_id"`
+	EmosServiceToken    string `json:"emos_service_token"`
+	TelegramBotToken    string `json:"telegram_bot_token"`
+	TelegramBotUsername string `json:"telegram_bot_username"`
+	TelegramApiURL      string `json:"telegram_api_url"`
+	ProxyURL            string `json:"proxy_url"`       // 代理URL
+	EnableTelegram      bool   `json:"enable_telegram"` // 是否启用Telegram
+	DataFile            string `json:"data_file"`       // 数据文件路径
 }
 
 // 用户信息
 type User struct {
-	Token      string `json:"token"`
-	Time       string `json:"time"`
-	Random     bool   `json:"random"`
-	RandomTime string `json:"random_time"` // 当天的随机签到时间
-	Remark     string `json:"remark"`      // 用户备注
-	Username   string `json:"username"`    // 用户名
+	Token         string `json:"token"`
+	Time          string `json:"time"`
+	Random        bool   `json:"random"`
+	RandomTime    string `json:"random_time"` // 当天的随机签到时间
+	Remark        string `json:"remark"`      // 用户备注
+	Username      string `json:"username"`    // 用户名
+	ChatID        int64  `json:"chat_id,omitempty"`
+	LastCheckDate string `json:"last_check_date,omitempty"`
 }
 
 // 签到结果
@@ -51,18 +58,50 @@ type UserInfo struct {
 	Username string `json:"username"`
 }
 
+type EMOSProfile struct {
+	EMOSID   string
+	Username string
+	Avatar   string
+}
+
+type AuthUser struct {
+	TelegramID        int64  `json:"telegram_id"`
+	TelegramUsername  string `json:"telegram_username,omitempty"`
+	TelegramFirstName string `json:"telegram_first_name,omitempty"`
+	EMOSUsername      string `json:"emos_username,omitempty"`
+	EMOSID            string `json:"emos_id,omitempty"`
+	Avatar            string `json:"avatar,omitempty"`
+	AuthToken         string `json:"auth_token,omitempty"`
+	AuthStatus        string `json:"auth_status,omitempty"`
+	UpdatedAt         string `json:"updated_at,omitempty"`
+}
+
+type TelegramProfile struct {
+	ID        int64
+	Username  string
+	FirstName string
+}
+
 // 数据存储结构
 type DataStorage struct {
-	Users   []User         `json:"users"`
-	ChatIds map[int64]bool `json:"chat_ids"`
+	Users        []User             `json:"users"`
+	ChatIds      map[int64]bool     `json:"chat_ids"`
+	LoggedTokens map[int64]string   `json:"logged_tokens,omitempty"`
+	AdminChatIds map[int64]bool     `json:"admin_chat_ids,omitempty"`
+	AuthUsers    map[int64]AuthUser `json:"auth_users,omitempty"`
 }
 
 var (
-	config     Config
-	users      []User
-	chatIds    = make(map[int64]bool)
-	usersMutex sync.Mutex
-	beijingLoc *time.Location // 北京时间时区
+	config                Config
+	users                 []User
+	chatIds               = make(map[int64]bool)
+	loggedTokens          = make(map[int64]string)
+	adminChatIds          = make(map[int64]bool)
+	authUsers             = make(map[int64]AuthUser)
+	usersMutex            sync.Mutex
+	chatMutex             sync.Mutex
+	beijingLoc            *time.Location // 北京时间时区
+	telegramMessageSender = defaultSendTelegramMessage
 	// 用户状态管理
 	userStates = make(map[int64]UserState)
 	stateMutex sync.Mutex
@@ -73,6 +112,7 @@ type StateType string
 
 const (
 	StateIdle           StateType = "idle"
+	StateWaitAddAccount StateType = "wait_add_account"
 	StateWaitToken      StateType = "wait_token"
 	StateWaitMode       StateType = "wait_mode"
 	StateWaitTime       StateType = "wait_time"
@@ -91,7 +131,7 @@ type UserState struct {
 // 初始化日志文件
 func initLog() {
 	// 创建或清空日志文件
-	logFile, err := os.Create("log.txt")
+	logFile, err := os.OpenFile("log.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		// 日志文件创建失败，尝试输出错误信息
 		os.Stderr.Write([]byte(fmt.Sprintf("创建日志文件失败: %v\n", err)))
@@ -208,17 +248,22 @@ func main() {
 	http.HandleFunc("/api/register", registerUser)
 	http.HandleFunc("/api/remove", removeUser)
 	http.HandleFunc("/api/users", getUsers)
+	http.HandleFunc("/api/telegram-login", completeTelegramLogin)
+	http.HandleFunc("/login", serveTelegramLoginPage)
+	http.HandleFunc("/bot-login", serveTelegramLoginPage)
 	http.HandleFunc("/webhook", handleWebhook)
 
-	// 暂时禁用服务器功能，避免端口冲突
-	// go func() {
-	// 	if err := http.ListenAndServe(fmt.Sprintf(":%d", config.Port), nil); err != nil {
-	// 		log.Printf("服务器启动失败: %v", err)
-	// 	}
-	// }()
+	go func() {
+		addr := fmt.Sprintf(":%d", config.Port)
+		printlnUTF8(fmt.Sprintf("HTTP服务启动: http://localhost%s", addr))
+		if err := http.ListenAndServe(addr, nil); err != nil {
+			printlnUTF8(fmt.Sprintf("HTTP服务启动失败: %v", err))
+		}
+	}()
 
 	// 启动轮询获取Telegram消息（如果启用）
 	if config.EnableTelegram {
+		go setTelegramBotCommands()
 		go func() {
 			// 捕获panic
 			defer func() {
@@ -276,13 +321,39 @@ func main() {
 // 初始化配置
 func initConfig() {
 	config = Config{
-		Port:             3001,
-		ApiBaseURL:       "https://emos.best",
-		TelegramBotToken: "8754758110:AAGscR-51usqNuB6hkEld7ovO_eQm5w-zCs",
-		TelegramApiURL:   "https://api.telegram.org/bot",
-		ProxyURL:         "",          // 代理URL，留空表示不使用代理
-		EnableTelegram:   true,        // 是否启用Telegram
-		DataFile:         "data.json", // 数据文件路径
+		Port:                8081,
+		ApiBaseURL:          "https://emos.best",
+		PublicBaseURL:       "http://127.0.0.1:8081",
+		EmosProviderBot:     "emospg_bot",
+		EmosUserID:          "e0E446ZE6s",
+		EmosServiceToken:    "",
+		TelegramBotToken:    "",
+		TelegramBotUsername: "EmosCheckinBot",
+		TelegramApiURL:      "https://api.telegram.org/bot",
+		ProxyURL:            "",          // 代理URL，留空表示不使用代理
+		EnableTelegram:      true,        // 是否启用Telegram
+		DataFile:            "data.json", // 数据文件路径
+	}
+	if v := strings.TrimSpace(os.Getenv("BOT_USERNAME")); v != "" {
+		config.TelegramBotUsername = v
+	}
+	if v := strings.TrimSpace(os.Getenv("TELEGRAM_BOT_TOKEN")); v != "" {
+		config.TelegramBotToken = v
+	}
+	if v := strings.TrimSpace(os.Getenv("EMOS_PROVIDER_BOT")); v != "" {
+		config.EmosProviderBot = v
+	}
+	if v := strings.TrimSpace(os.Getenv("EMOS_USER_ID")); v != "" {
+		config.EmosUserID = v
+	}
+	if v := strings.TrimSpace(os.Getenv("EMOS_API_BASE_URL")); v != "" {
+		config.ApiBaseURL = v
+	}
+	if v := strings.TrimSpace(os.Getenv("EMOS_SERVICE_TOKEN")); v != "" {
+		config.EmosServiceToken = v
+	}
+	if v := strings.TrimSpace(os.Getenv("PUBLIC_BASE_URL")); v != "" {
+		config.PublicBaseURL = v
 	}
 }
 
@@ -314,6 +385,18 @@ func loadData() {
 	if storage.ChatIds != nil {
 		chatIds = storage.ChatIds
 	}
+	if storage.LoggedTokens != nil {
+		loggedTokens = storage.LoggedTokens
+	}
+	if storage.AdminChatIds != nil {
+		adminChatIds = storage.AdminChatIds
+	}
+	if storage.AuthUsers != nil {
+		authUsers = storage.AuthUsers
+	}
+
+	ownerUpdateCount := applyTokenOwnersFromData()
+	ownerUpdateCount += applyDefaultOwnerToUnownedUsers()
 
 	// 重置所有随机签到用户的随机时间，以便在程序启动时重新生成
 	resetCount := 0
@@ -324,10 +407,10 @@ func loadData() {
 		}
 	}
 
-	// 只有当有用户数据并且重置了随机时间时，才保存数据
-	if len(users) > 0 && resetCount > 0 {
+	// 只有当有用户数据并且重置了随机时间或修复了归属时，才保存数据
+	if len(users) > 0 && (resetCount > 0 || ownerUpdateCount > 0) {
 		saveData()
-		printlnUTF8(fmt.Sprintf("已重置 %d 个随机签到用户的随机时间，将在启动后重新生成", resetCount))
+		printlnUTF8(fmt.Sprintf("已重置 %d 个随机签到用户的随机时间，修复 %d 个账号归属，将在启动后重新生成", resetCount, ownerUpdateCount))
 	}
 
 	printlnUTF8(fmt.Sprintf("成功加载数据: %d 个用户，%d 个聊天ID", len(users), len(chatIds)))
@@ -335,12 +418,35 @@ func loadData() {
 
 // 保存数据
 func saveData() {
-	printlnUTF8(fmt.Sprintf("开始保存数据: %d 个用户，%d 个聊天ID", len(users), len(chatIds)))
+	chatMutex.Lock()
+	chatIdsCopy := make(map[int64]bool, len(chatIds))
+	for chatID, enabled := range chatIds {
+		chatIdsCopy[chatID] = enabled
+	}
+	loggedTokensCopy := make(map[int64]string, len(loggedTokens))
+	for chatID, token := range loggedTokens {
+		loggedTokensCopy[chatID] = token
+	}
+	adminChatIdsCopy := make(map[int64]bool, len(adminChatIds))
+	for chatID, enabled := range adminChatIds {
+		adminChatIdsCopy[chatID] = enabled
+	}
+	authUsersCopy := make(map[int64]AuthUser, len(authUsers))
+	for chatID, user := range authUsers {
+		authUsersCopy[chatID] = user
+	}
+	chatCount := len(chatIdsCopy)
+	chatMutex.Unlock()
+
+	printlnUTF8(fmt.Sprintf("开始保存数据: %d 个用户，%d 个聊天ID", len(users), chatCount))
 
 	// 准备数据
 	storage := DataStorage{
-		Users:   users,
-		ChatIds: chatIds,
+		Users:        users,
+		ChatIds:      chatIdsCopy,
+		LoggedTokens: loggedTokensCopy,
+		AdminChatIds: adminChatIdsCopy,
+		AuthUsers:    authUsersCopy,
 	}
 
 	// 序列化数据
@@ -358,7 +464,294 @@ func saveData() {
 		return
 	}
 
-	printlnUTF8(fmt.Sprintf("成功保存数据到 %s: %d 个用户，%d 个聊天ID", config.DataFile, len(users), len(chatIds)))
+	printlnUTF8(fmt.Sprintf("成功保存数据到 %s: %d 个用户，%d 个聊天ID", config.DataFile, len(users), chatCount))
+}
+
+func rememberChatID(chatID int64) {
+	chatMutex.Lock()
+	chatIds[chatID] = true
+	chatMutex.Unlock()
+}
+
+func isAdmin(chatID int64) bool {
+	chatMutex.Lock()
+	defer chatMutex.Unlock()
+	if len(adminChatIds) == 0 {
+		return true
+	}
+	return adminChatIds[chatID]
+}
+
+func getLoggedToken(chatID int64) string {
+	chatMutex.Lock()
+	defer chatMutex.Unlock()
+	if user, ok := authUsers[chatID]; ok && isLoggedIn(user) {
+		return serviceToken(user)
+	}
+	return loggedTokens[chatID]
+}
+
+func saveLoggedToken(chatID int64, token string) {
+	chatMutex.Lock()
+	loggedTokens[chatID] = token
+	chatMutex.Unlock()
+	saveData()
+}
+
+func addAdmin(chatID int64) {
+	chatMutex.Lock()
+	adminChatIds[chatID] = true
+	chatMutex.Unlock()
+	saveData()
+}
+
+func removeAdmin(chatID int64) {
+	chatMutex.Lock()
+	delete(adminChatIds, chatID)
+	chatMutex.Unlock()
+	saveData()
+}
+
+func broadcastTelegramMessage(text string) int {
+	chatMutex.Lock()
+	targets := make([]int64, 0, len(chatIds))
+	for chatID := range chatIds {
+		targets = append(targets, chatID)
+	}
+	chatMutex.Unlock()
+
+	for _, chatID := range targets {
+		sendTelegramMessage(chatID, text)
+	}
+	return len(targets)
+}
+
+func notifyUser(user User, message string) {
+	if user.ChatID == 0 {
+		printlnUTF8(fmt.Sprintf("用户 %s 没有绑定chat_id，跳过通知", truncateToken(user.Token)))
+		return
+	}
+	sendTelegramMessage(user.ChatID, message)
+}
+
+func parseScheduleTime(value string) (int, int, int, error) {
+	parts := strings.Split(value, ":")
+	if len(parts) < 2 {
+		return 0, 0, 0, fmt.Errorf("invalid time: %s", value)
+	}
+
+	hour, err := strconv.Atoi(parts[0])
+	if err != nil || hour < 0 || hour > 23 {
+		return 0, 0, 0, fmt.Errorf("invalid hour: %s", value)
+	}
+
+	minute, err := strconv.Atoi(parts[1])
+	if err != nil || minute < 0 || minute > 59 {
+		return 0, 0, 0, fmt.Errorf("invalid minute: %s", value)
+	}
+
+	second := 0
+	if len(parts) >= 3 {
+		second, err = strconv.Atoi(parts[2])
+		if err != nil || second < 0 || second > 59 {
+			return 0, 0, 0, fmt.Errorf("invalid second: %s", value)
+		}
+	}
+
+	return hour, minute, second, nil
+}
+
+func shouldRunScheduledTime(now time.Time, hour, minute, second int, lastCheckDate string) bool {
+	if lastCheckDate == now.Format("2006-01-02") {
+		return false
+	}
+	return now.Hour() == hour && now.Minute() == minute && now.Second() >= second
+}
+
+func saveUserByToken(user User) {
+	usersMutex.Lock()
+	for i, existing := range users {
+		if existing.Token == user.Token {
+			users[i] = user
+			break
+		}
+	}
+	usersMutex.Unlock()
+	saveData()
+}
+
+func applyTokenOwnersFromData() int {
+	type tokenOwner struct {
+		chatID    int64
+		updatedAt time.Time
+	}
+
+	ownerByToken := make(map[string]tokenOwner)
+	for chatID, token := range loggedTokens {
+		if strings.TrimSpace(token) != "" {
+			ownerByToken[token] = tokenOwner{chatID: chatID}
+		}
+	}
+	for chatID, user := range authUsers {
+		if strings.TrimSpace(user.AuthToken) != "" {
+			updatedAt, _ := time.Parse(time.RFC3339, user.UpdatedAt)
+			current, exists := ownerByToken[user.AuthToken]
+			if !exists || updatedAt.After(current.updatedAt) || current.updatedAt.IsZero() {
+				ownerByToken[user.AuthToken] = tokenOwner{chatID: chatID, updatedAt: updatedAt}
+			}
+		}
+	}
+
+	updated := 0
+	for i, user := range users {
+		owner, ok := ownerByToken[user.Token]
+		if !ok || owner.chatID == 0 || user.ChatID == owner.chatID {
+			continue
+		}
+		users[i].ChatID = owner.chatID
+		chatIds[owner.chatID] = true
+		updated++
+	}
+	return updated
+}
+
+func applyDefaultOwnerToUnownedUsers() int {
+	var ownerChatID int64
+	enabledAdminCount := 0
+	for chatID, enabled := range adminChatIds {
+		if !enabled {
+			continue
+		}
+		ownerChatID = chatID
+		enabledAdminCount++
+	}
+	if enabledAdminCount != 1 || ownerChatID == 0 {
+		return 0
+	}
+
+	updated := 0
+	for i, user := range users {
+		if user.ChatID != 0 {
+			continue
+		}
+		users[i].ChatID = ownerChatID
+		chatIds[ownerChatID] = true
+		updated++
+	}
+	if updated > 0 {
+		printlnUTF8(fmt.Sprintf("已将 %d 个旧无归属账号绑定到唯一管理员: %d", updated, ownerChatID))
+	}
+	return updated
+}
+
+func filterUsersForChat(chatID int64) []User {
+	result := make([]User, 0)
+	for _, user := range users {
+		if isAdmin(chatID) || user.ChatID == chatID {
+			result = append(result, user)
+		}
+	}
+	return result
+}
+
+func htmlEscape(text string) string {
+	text = strings.ReplaceAll(text, "&", "&amp;")
+	text = strings.ReplaceAll(text, "<", "&lt;")
+	text = strings.ReplaceAll(text, ">", "&gt;")
+	text = strings.ReplaceAll(text, "\"", "&quot;")
+	text = strings.ReplaceAll(text, "'", "&#39;")
+	return text
+}
+
+func sanitizeTelegramText(text string) string {
+	fields := strings.Fields(text)
+	if len(fields) == 0 {
+		return text
+	}
+	if fields[0] == "/start" && len(fields) > 1 && strings.HasPrefix(fields[1], "emosLinkAgree-") {
+		return "/start emosLinkAgree-***"
+	}
+	if fields[0] == "/add" && len(fields) > 2 && !looksLikeTime(fields[1]) {
+		fields[1] = truncateToken(fields[1])
+		return strings.Join(fields, " ")
+	}
+	if fields[0] == "/login" && len(fields) > 1 {
+		fields[1] = truncateToken(fields[1])
+		return strings.Join(fields, " ")
+	}
+	return text
+}
+
+func buildEMOSLoginURL() string {
+	payload := fmt.Sprintf("link_%s-%s", config.EmosUserID, config.TelegramBotUsername)
+	return fmt.Sprintf("https://t.me/%s?start=%s", config.EmosProviderBot, url.QueryEscape(payload))
+}
+
+func serviceToken(user AuthUser) string {
+	if strings.TrimSpace(config.EmosServiceToken) != "" {
+		return strings.TrimSpace(config.EmosServiceToken)
+	}
+	return strings.TrimSpace(user.AuthToken)
+}
+
+func isLoggedIn(user AuthUser) bool {
+	return user.AuthStatus == "agreed" && strings.TrimSpace(user.AuthToken) != "" && strings.TrimSpace(user.EMOSUsername) != ""
+}
+
+func getAuthUser(chatID int64) (AuthUser, bool) {
+	chatMutex.Lock()
+	defer chatMutex.Unlock()
+	user, ok := authUsers[chatID]
+	return user, ok
+}
+
+func saveAuthUser(user AuthUser) {
+	user.UpdatedAt = time.Now().In(beijingLoc).Format(time.RFC3339)
+	chatMutex.Lock()
+	authUsers[user.TelegramID] = user
+	if user.AuthToken != "" {
+		loggedTokens[user.TelegramID] = user.AuthToken
+	}
+	chatMutex.Unlock()
+	saveData()
+}
+
+func saveRefusedAuthUser(profile TelegramProfile) {
+	existing, _ := getAuthUser(profile.ID)
+	existing.TelegramID = profile.ID
+	existing.TelegramUsername = profile.Username
+	existing.TelegramFirstName = profile.FirstName
+	existing.AuthStatus = "refused"
+	saveAuthUser(existing)
+}
+
+func sendLoginPrompt(chatID int64) {
+	loginURL := buildEMOSLoginURL()
+	message := fmt.Sprintf("请先完成EMOS授权登录：\n%s", loginURL)
+	sendTelegramMessage(chatID, message)
+}
+
+func looksLikeTime(text string) bool {
+	text = strings.ReplaceAll(text, "：", ":")
+	parts := strings.Split(text, ":")
+	if len(parts) < 2 || len(parts) > 3 {
+		return false
+	}
+	hour, err := strconv.Atoi(parts[0])
+	if err != nil || hour < 0 || hour > 23 {
+		return false
+	}
+	minute, err := strconv.Atoi(parts[1])
+	if err != nil || minute < 0 || minute > 59 {
+		return false
+	}
+	if len(parts) == 3 {
+		second, err := strconv.Atoi(parts[2])
+		if err != nil || second < 0 || second > 59 {
+			return false
+		}
+	}
+	return true
 }
 
 // 设置网络配置
@@ -484,7 +877,7 @@ func registerUser(w http.ResponseWriter, r *http.Request) {
 				Random: req.Random,
 			}
 			found = true
-			printlnUTF8(fmt.Sprintf("更新用户: %s", req.Token))
+			printlnUTF8(fmt.Sprintf("更新用户: %s", truncateToken(req.Token)))
 			break
 		}
 	}
@@ -496,7 +889,7 @@ func registerUser(w http.ResponseWriter, r *http.Request) {
 			Time:   req.Time,
 			Random: req.Random,
 		})
-		printlnUTF8(fmt.Sprintf("添加新用户: %s", req.Token))
+		printlnUTF8(fmt.Sprintf("添加新用户: %s", truncateToken(req.Token)))
 	}
 
 	// 保存数据
@@ -540,7 +933,7 @@ func removeUser(w http.ResponseWriter, r *http.Request) {
 			// 删除用户
 			users = append(users[:i], users[i+1:]...)
 			found = true
-			printlnUTF8(fmt.Sprintf("删除用户: %s", req.Token))
+			printlnUTF8(fmt.Sprintf("删除用户: %s", truncateToken(req.Token)))
 			break
 		}
 	}
@@ -576,6 +969,167 @@ func getUsers(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(users)
 }
 
+func serveTelegramLoginPage(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	http.Redirect(w, r, buildEMOSLoginURL(), http.StatusFound)
+}
+
+func completeTelegramLogin(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		TelegramID        int64  `json:"telegram_id"`
+		TelegramUsername  string `json:"telegram_username"`
+		TelegramFirstName string `json:"telegram_first_name"`
+		Token             string `json:"token"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request", http.StatusBadRequest)
+		return
+	}
+	if req.TelegramID == 0 || strings.TrimSpace(req.Token) == "" {
+		http.Error(w, "telegram_id and token are required", http.StatusBadRequest)
+		return
+	}
+
+	profile := TelegramProfile{
+		ID:        req.TelegramID,
+		Username:  req.TelegramUsername,
+		FirstName: req.TelegramFirstName,
+	}
+	authUser, err := authorizeEMOSToken(profile, req.Token)
+	if err != nil {
+		http.Error(w, "login failed", http.StatusUnauthorized)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success":       true,
+		"telegram_id":   authUser.TelegramID,
+		"emos_id":       authUser.EMOSID,
+		"emos_username": authUser.EMOSUsername,
+	})
+}
+
+func authorizeEMOSToken(profile TelegramProfile, token string) (AuthUser, error) {
+	token = strings.TrimSpace(token)
+	if token == "" {
+		return AuthUser{}, fmt.Errorf("empty token")
+	}
+	if err := verifyEMOSToken(token); err != nil {
+		return AuthUser{}, err
+	}
+
+	emosProfile, err := fetchEMOSProfile(token)
+	if err != nil {
+		return AuthUser{}, err
+	}
+	if strings.TrimSpace(emosProfile.Username) == "" {
+		return AuthUser{}, fmt.Errorf("missing emos username")
+	}
+
+	authUser := AuthUser{
+		TelegramID:        profile.ID,
+		TelegramUsername:  profile.Username,
+		TelegramFirstName: profile.FirstName,
+		EMOSUsername:      emosProfile.Username,
+		EMOSID:            emosProfile.EMOSID,
+		Avatar:            emosProfile.Avatar,
+		AuthToken:         token,
+		AuthStatus:        "agreed",
+	}
+	saveAuthUser(authUser)
+	return authUser, nil
+}
+
+func verifyEMOSToken(token string) error {
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/api/sign/check", config.ApiBaseURL), nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
+	req.Header.Set("Accept", "application/json")
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return fmt.Errorf("emos token check failed: %d", resp.StatusCode)
+	}
+	return nil
+}
+
+func fetchEMOSProfile(token string) (EMOSProfile, error) {
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/api/user", config.ApiBaseURL), nil)
+	if err != nil {
+		return EMOSProfile{}, err
+	}
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
+	req.Header.Set("Accept", "application/json")
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return EMOSProfile{}, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return EMOSProfile{}, fmt.Errorf("get emos user failed: %d", resp.StatusCode)
+	}
+
+	var body map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		return EMOSProfile{}, err
+	}
+	return parseEMOSProfile(body), nil
+}
+
+func parseEMOSProfile(body map[string]interface{}) EMOSProfile {
+	source := body
+	if data, ok := body["data"].(map[string]interface{}); ok {
+		source = data
+	} else if user, ok := body["user"].(map[string]interface{}); ok {
+		source = user
+	}
+
+	return EMOSProfile{
+		EMOSID:   firstString(source, "user_id", "id", "uuid"),
+		Username: firstString(source, "username", "name", "nickname"),
+		Avatar:   firstString(source, "avatar", "avatar_url"),
+	}
+}
+
+func firstString(values map[string]interface{}, keys ...string) string {
+	for _, key := range keys {
+		if value, ok := values[key]; ok {
+			switch v := value.(type) {
+			case string:
+				if strings.TrimSpace(v) != "" {
+					return strings.TrimSpace(v)
+				}
+			case float64:
+				return strconv.FormatInt(int64(v), 10)
+			case json.Number:
+				return v.String()
+			}
+		}
+	}
+	return ""
+}
+
 // 处理Telegram webhook
 func handleWebhook(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
@@ -585,6 +1139,11 @@ func handleWebhook(w http.ResponseWriter, r *http.Request) {
 
 	var update struct {
 		Message struct {
+			From struct {
+				ID        int64  `json:"id"`
+				Username  string `json:"username"`
+				FirstName string `json:"first_name"`
+			} `json:"from"`
 			Chat struct {
 				ID int64 `json:"id"`
 			} `json:"chat"`
@@ -600,9 +1159,14 @@ func handleWebhook(w http.ResponseWriter, r *http.Request) {
 	if update.Message.Text != "" {
 		chatID := update.Message.Chat.ID
 		text := update.Message.Text
+		profile := TelegramProfile{
+			ID:        chatID,
+			Username:  update.Message.From.Username,
+			FirstName: update.Message.From.FirstName,
+		}
 
 		// 存储chat_id
-		chatIds[chatID] = true
+		rememberChatID(chatID)
 		printlnUTF8(fmt.Sprintf("存储chat_id: %d", chatID))
 
 		// 检查用户状态
@@ -620,56 +1184,278 @@ func handleWebhook(w http.ResponseWriter, r *http.Request) {
 		trimmedText := strings.TrimSpace(text)
 		// 调试日志：打印处理命令前的信息
 		printlnUTF8("=== 处理命令 ===")
-		printlnUTF8(fmt.Sprintf("原始文本: '%s'", text))
+		printlnUTF8(fmt.Sprintf("原始文本: '%s'", sanitizeTelegramText(text)))
 		printlnUTF8(fmt.Sprintf("去除空格后: '%s'", trimmedText))
 
-		// 处理 /add 命令
-		if strings.HasPrefix(trimmedText, "/add") {
-			// 检查是否是单独的 /add 命令
-			if trimmedText == "/add" {
-				// 开始一步一步添加用户
-				printlnUTF8("调用 startAddUser")
-				startAddUser(chatID)
-			} else {
-				// 兼容旧格式
-				printlnUTF8("调用 handleAddCommand (旧格式)")
-				handleAddCommand(chatID, text)
-			}
-		} else if strings.HasPrefix(trimmedText, "/remove") {
-			// 检查是否是单独的 /remove 命令
-			if trimmedText == "/remove" {
-				// 开始一步一步删除用户
-				startRemoveUser(chatID)
-			} else {
-				// 兼容旧格式
-				handleRemoveCommand(chatID, text)
-			}
-		} else if trimmedText == "/list" {
-			handleListCommand(chatID)
-		} else if trimmedText == "/help" {
-			handleHelpCommand(chatID)
-		} else {
-			sendTelegramMessage(chatID, "请使用 /help 查看可用命令")
-		}
+		processTelegramCommand(chatID, text, profile)
 	}
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("OK"))
 }
 
+func processTelegramCommand(chatID int64, text string, profile TelegramProfile) {
+	trimmedText := strings.TrimSpace(text)
+	command := strings.Fields(trimmedText)
+	if len(command) == 0 {
+		sendTelegramMessage(chatID, "请使用 /commands 查看可用命令")
+		return
+	}
+
+	switch command[0] {
+	case "/start":
+		if len(command) > 1 {
+			handleStartPayload(chatID, command[1], profile)
+		} else {
+			handleStartCommand(chatID)
+		}
+	case "/help", "/commands":
+		handleHelpCommand(chatID)
+	case "/myid":
+		sendTelegramMessage(chatID, fmt.Sprintf("你的chat_id: %d", chatID))
+	case "/account":
+		handleAccountCommand(chatID)
+	case "/add":
+		if trimmedText == "/add" {
+			printlnUTF8("调用 startAddUser")
+			startAddUser(chatID)
+		} else {
+			printlnUTF8("调用 handleAddCommand")
+			handleAddCommand(chatID, text)
+		}
+	case "/remove":
+		if trimmedText == "/remove" {
+			startRemoveUser(chatID)
+		} else {
+			handleRemoveCommand(chatID, text)
+		}
+	case "/cancel":
+		handleCancelCommand(chatID, text)
+	case "/list":
+		handleListCommand(chatID)
+	case "/broadcast":
+		handleBroadcastCommand(chatID, text)
+	case "/admin":
+		handleAdminHelpCommand(chatID)
+	case "/admin_add":
+		handleAdminAddCommand(chatID, text)
+	case "/admin_remove":
+		handleAdminRemoveCommand(chatID, text)
+	case "/admin_list":
+		handleAdminListCommand(chatID)
+	case "/setowner":
+		handleSetOwnerCommand(chatID, text)
+	default:
+		sendTelegramMessage(chatID, "请使用 /commands 查看可用命令")
+	}
+}
+
+func handleStartCommand(chatID int64) {
+	if user, ok := getAuthUser(chatID); ok && isLoggedIn(user) {
+		sendTelegramMessage(chatID, fmt.Sprintf("你已登录EMOS账号: <b>%s</b>\n发送 /add 可添加自动签到，发送 /account 查看账户。", htmlEscape(user.EMOSUsername)))
+		return
+	}
+	sendLoginPrompt(chatID)
+}
+
+func handleStartPayload(chatID int64, payload string, profile TelegramProfile) {
+	payload = strings.TrimSpace(payload)
+	if strings.HasPrefix(payload, "emosLinkAgree-") {
+		token := strings.TrimPrefix(payload, "emosLinkAgree-")
+		handleEMOSAgree(chatID, token, profile)
+		return
+	}
+	if strings.HasPrefix(payload, "emosLinkRefuse-") {
+		saveRefusedAuthUser(profile)
+		sendTelegramMessage(chatID, "你已拒绝EMOS授权。需要重新登录时发送 /start。")
+		return
+	}
+
+	handleStartCommand(chatID)
+}
+
+func handleEMOSAgree(chatID int64, token string, profile TelegramProfile) {
+	if strings.TrimSpace(token) == "" {
+		sendTelegramMessage(chatID, "登录失败，EMOS授权Token为空。请重新发送 /start 登录。")
+		return
+	}
+
+	authUser, err := authorizeEMOSToken(profile, token)
+	if err != nil {
+		printlnUTF8(fmt.Sprintf("EMOS授权失败: chat_id=%d, err=%v", chatID, err))
+		sendTelegramMessage(chatID, "登录失败，EMOS授权无效或已过期。请重新发送 /start 登录。")
+		return
+	}
+
+	sendTelegramMessage(chatID, fmt.Sprintf("EMOS登录成功，当前账号: <b>%s</b>\n现在发送 /add 就可以免输入Token添加自动签到。", htmlEscape(authUser.EMOSUsername)))
+}
+
+func handleLoginCommand(chatID int64, text string) {
+	handleStartCommand(chatID)
+}
+
+func handleAccountCommand(chatID int64) {
+	user, ok := getAuthUser(chatID)
+	if !ok || !isLoggedIn(user) {
+		sendLoginPrompt(chatID)
+		return
+	}
+	message := fmt.Sprintf("EMOS账号: <code>%s</code>\nEMOS ID: <code>%s</code>\nTG ID: <code>%d</code>\n授权状态: <code>%s</code>",
+		htmlEscape(user.EMOSUsername), htmlEscape(user.EMOSID), chatID, htmlEscape(user.AuthStatus))
+	sendTelegramMessage(chatID, message)
+}
+
+func handleBroadcastCommand(chatID int64, text string) {
+	if !isAdmin(chatID) {
+		sendTelegramMessage(chatID, "没有权限使用广播命令。")
+		return
+	}
+
+	message := strings.TrimSpace(strings.TrimPrefix(text, "/broadcast"))
+	if message == "" {
+		sendTelegramMessage(chatID, "格式错误，请使用: /broadcast 通知内容")
+		return
+	}
+
+	count := broadcastTelegramMessage("管理员广播:\n\n" + message)
+	sendTelegramMessage(chatID, fmt.Sprintf("广播已发送给 %d 个聊天。", count))
+}
+
+func handleAdminHelpCommand(chatID int64) {
+	if !isAdmin(chatID) {
+		sendTelegramMessage(chatID, "你当前不是管理员。")
+		return
+	}
+	message := "管理员模式:\n"
+	message += "/broadcast 内容 - 向所有已联系Bot的聊天广播\n"
+	message += "/setowner 用户名或Token chat_id - 绑定账号通知归属\n"
+	message += "/admin_add chat_id - 添加管理员\n"
+	message += "/admin_remove chat_id - 移除管理员\n"
+	message += "/admin_list - 查看管理员列表"
+	sendTelegramMessage(chatID, message)
+}
+
+func handleAdminAddCommand(chatID int64, text string) {
+	if !isAdmin(chatID) {
+		sendTelegramMessage(chatID, "没有权限修改管理员。")
+		return
+	}
+
+	parts := strings.Fields(text)
+	if len(parts) != 2 {
+		sendTelegramMessage(chatID, "格式错误，请使用: /admin_add chat_id")
+		return
+	}
+
+	targetChatID, err := strconv.ParseInt(parts[1], 10, 64)
+	if err != nil {
+		sendTelegramMessage(chatID, "chat_id格式错误。")
+		return
+	}
+
+	addAdmin(targetChatID)
+	sendTelegramMessage(chatID, fmt.Sprintf("已添加管理员: %d", targetChatID))
+}
+
+func handleAdminRemoveCommand(chatID int64, text string) {
+	if !isAdmin(chatID) {
+		sendTelegramMessage(chatID, "没有权限修改管理员。")
+		return
+	}
+
+	parts := strings.Fields(text)
+	if len(parts) != 2 {
+		sendTelegramMessage(chatID, "格式错误，请使用: /admin_remove chat_id")
+		return
+	}
+
+	targetChatID, err := strconv.ParseInt(parts[1], 10, 64)
+	if err != nil {
+		sendTelegramMessage(chatID, "chat_id格式错误。")
+		return
+	}
+
+	removeAdmin(targetChatID)
+	sendTelegramMessage(chatID, fmt.Sprintf("已移除管理员: %d", targetChatID))
+}
+
+func handleAdminListCommand(chatID int64) {
+	if !isAdmin(chatID) {
+		sendTelegramMessage(chatID, "没有权限查看管理员。")
+		return
+	}
+
+	chatMutex.Lock()
+	defer chatMutex.Unlock()
+	if len(adminChatIds) == 0 {
+		sendTelegramMessage(chatID, "当前未设置管理员，所有用户临时拥有管理员权限。请先使用 /admin_add chat_id 添加管理员。")
+		return
+	}
+
+	message := "管理员列表:\n"
+	for adminID := range adminChatIds {
+		message += fmt.Sprintf("- %d\n", adminID)
+	}
+	sendTelegramMessage(chatID, message)
+}
+
+func handleSetOwnerCommand(chatID int64, text string) {
+	if !isAdmin(chatID) {
+		sendTelegramMessage(chatID, "没有权限绑定账号归属。")
+		return
+	}
+
+	parts := strings.Fields(text)
+	if len(parts) != 3 {
+		sendTelegramMessage(chatID, "格式错误，请使用: /setowner 用户名或Token chat_id")
+		return
+	}
+
+	targetChatID, err := strconv.ParseInt(parts[2], 10, 64)
+	if err != nil {
+		sendTelegramMessage(chatID, "chat_id格式错误。")
+		return
+	}
+
+	keyword := parts[1]
+	usersMutex.Lock()
+	defer usersMutex.Unlock()
+	for i, user := range users {
+		if user.Token == keyword || user.Username == keyword {
+			users[i].ChatID = targetChatID
+			rememberChatID(targetChatID)
+			saveData()
+			sendTelegramMessage(chatID, fmt.Sprintf("已将账号 %s 绑定到 chat_id %d。", htmlEscape(user.Username), targetChatID))
+			return
+		}
+	}
+
+	sendTelegramMessage(chatID, "未找到对应账号。")
+}
+
 // 开始添加用户流程
 func startAddUser(chatID int64) {
-	// 设置用户状态为等待输入token
-	stateMutex.Lock()
-	userStates[chatID] = UserState{
-		Type:       StateWaitToken,
-		Data:       make(map[string]string),
-		CreateTime: time.Now(),
+	if token := getLoggedToken(chatID); token != "" {
+		userInfo, err := getUserInfo(token)
+		if err != nil {
+			sendTelegramMessage(chatID, "已保存的授权失效，请发送 /start 重新进行EMOS授权。")
+		} else {
+			stateMutex.Lock()
+			userStates[chatID] = UserState{
+				Type: StateWaitAddAccount,
+				Data: map[string]string{
+					"token":    token,
+					"username": userInfo.Username,
+				},
+				CreateTime: time.Now(),
+			}
+			stateMutex.Unlock()
+			sendTelegramMessage(chatID, "请选择要添加的账号:\n1. 添加当前登录账号\n2. 添加小号Token\n输入0取消")
+			return
+		}
 	}
-	stateMutex.Unlock()
 
-	// 发送提示消息
-	sendTelegramMessage(chatID, "请输入签到用的Bearer Token:")
+	sendLoginPrompt(chatID)
 }
 
 // 开始删除用户流程
@@ -691,7 +1477,9 @@ func startRemoveUser(chatID int64) {
 func handleUserState(chatID int64, text string, state UserState) {
 	switch state.Type {
 	case StateWaitToken:
-		handleWaitToken(chatID, text)
+		handleWaitToken(chatID, text, state.Data)
+	case StateWaitAddAccount:
+		handleWaitAddAccount(chatID, text, state.Data)
 	case StateWaitMode:
 		handleWaitMode(chatID, text, state.Data)
 	case StateWaitTime:
@@ -706,7 +1494,7 @@ func handleUserState(chatID int64, text string, state UserState) {
 }
 
 // 处理等待token状态
-func handleWaitToken(chatID int64, text string) {
+func handleWaitToken(chatID int64, text string, data map[string]string) {
 	// 检查是否输入0退出
 	if text == "0" {
 		// 清除用户状态
@@ -729,6 +1517,12 @@ func handleWaitToken(chatID int64, text string) {
 		sendTelegramMessage(chatID, "获取用户信息失败，Token无效，请重新输入:")
 		return
 	}
+	if data == nil {
+		data = make(map[string]string)
+	}
+	if data["small_account"] != "true" {
+		saveLoggedToken(chatID, text)
+	}
 
 	// 保存token和username并进入下一步
 	stateMutex.Lock()
@@ -743,6 +1537,43 @@ func handleWaitToken(chatID int64, text string) {
 	stateMutex.Unlock()
 
 	// 发送提示消息
+	sendTelegramMessage(chatID, "请选择签到模式:\n1. 固定时间签到\n2. 随机时间签到\n输入0取消")
+}
+
+func handleWaitAddAccount(chatID int64, text string, data map[string]string) {
+	if text == "0" {
+		stateMutex.Lock()
+		delete(userStates, chatID)
+		stateMutex.Unlock()
+		sendTelegramMessage(chatID, "已取消添加用户")
+		return
+	}
+	if text != "1" && text != "2" {
+		sendTelegramMessage(chatID, "请输入正确的选项(1或2):")
+		return
+	}
+
+	if text == "2" {
+		stateMutex.Lock()
+		userStates[chatID] = UserState{
+			Type: StateWaitToken,
+			Data: map[string]string{
+				"small_account": "true",
+			},
+			CreateTime: time.Now(),
+		}
+		stateMutex.Unlock()
+		sendTelegramMessage(chatID, "请输入小号Token:\n输入0取消")
+		return
+	}
+
+	stateMutex.Lock()
+	userStates[chatID] = UserState{
+		Type:       StateWaitMode,
+		Data:       data,
+		CreateTime: time.Now(),
+	}
+	stateMutex.Unlock()
 	sendTelegramMessage(chatID, "请选择签到模式:\n1. 固定时间签到\n2. 随机时间签到\n输入0取消")
 }
 
@@ -768,6 +1599,19 @@ func handleWaitMode(chatID int64, text string, data map[string]string) {
 	random := text == "2"
 	data["random"] = fmt.Sprintf("%v", random)
 
+	if random {
+		data["time"] = "00:00:00"
+		stateMutex.Lock()
+		userStates[chatID] = UserState{
+			Type:       StateWaitRemark,
+			Data:       data,
+			CreateTime: time.Now(),
+		}
+		stateMutex.Unlock()
+		sendTelegramMessage(chatID, "已选择随机时间签到，请输入备注信息(如不需要备注，输入0):")
+		return
+	}
+
 	stateMutex.Lock()
 	userStates[chatID] = UserState{
 		Type:       StateWaitTime,
@@ -777,11 +1621,7 @@ func handleWaitMode(chatID int64, text string, data map[string]string) {
 	stateMutex.Unlock()
 
 	// 发送提示消息
-	if random {
-		sendTelegramMessage(chatID, "已选择随机时间签到，请输入一个参考时间(格式: HH:MM:SS，例如: 08:30:00):\n输入0取消")
-	} else {
-		sendTelegramMessage(chatID, "请输入固定签到时间(格式: HH:MM:SS，例如: 08:30:00):\n输入0取消")
-	}
+	sendTelegramMessage(chatID, "请输入固定签到时间(格式: HH:MM:SS，例如: 08:30:00):\n输入0取消")
 }
 
 // 处理等待时间状态
@@ -955,6 +1795,10 @@ func handleRemoveByUsername(chatID int64, username string) {
 	found := false
 	for i, user := range users {
 		if user.Username == username {
+			if user.ChatID != chatID && !isAdmin(chatID) {
+				sendTelegramMessage(chatID, "没有权限删除这个账号。")
+				return
+			}
 			// 删除用户
 			users = append(users[:i], users[i+1:]...)
 			found = true
@@ -976,52 +1820,82 @@ func handleRemoveByUsername(chatID int64, username string) {
 func handleAddCommand(chatID int64, text string) {
 	// 调试日志：打印完整的文本
 	printlnUTF8("=== handleAddCommand called ===")
-	printlnUTF8(fmt.Sprintf("Full text: '%s'", text))
+	printlnUTF8(fmt.Sprintf("Full text: '%s'", sanitizeTelegramText(text)))
 	printlnUTF8(fmt.Sprintf("Text length: %d", len(text)))
 
 	parts := strings.Split(text, " ")
 
 	// 调试日志：打印分割后的部分
-	printlnUTF8(fmt.Sprintf("Split parts: %v", parts))
+	printlnUTF8(fmt.Sprintf("Split parts count: %d", len(parts)))
 	printlnUTF8(fmt.Sprintf("Parts count: %d", len(parts)))
 
 	// 过滤空字符串元素
 	var filteredParts []string
 	for i, part := range parts {
-		printlnUTF8(fmt.Sprintf("Part %d: '%s' (empty: %t)", i, part, part == ""))
+		logPart := part
+		if i == 1 && len(parts) > 2 && !looksLikeTime(part) {
+			logPart = truncateToken(part)
+		}
+		printlnUTF8(fmt.Sprintf("Part %d: '%s' (empty: %t)", i, logPart, part == ""))
 		if part != "" {
 			filteredParts = append(filteredParts, part)
 		}
 	}
 
 	// 调试日志：打印过滤后的部分
-	printlnUTF8(fmt.Sprintf("Filtered parts: %v", filteredParts))
+	printlnUTF8(fmt.Sprintf("Filtered parts count: %d", len(filteredParts)))
 	printlnUTF8(fmt.Sprintf("Filtered parts count: %d", len(filteredParts)))
 
-	if len(filteredParts) < 3 {
-		sendTelegramMessage(chatID, "格式错误，请使用: /add token time [random] [remark]")
+	if len(filteredParts) < 2 {
+		sendTelegramMessage(chatID, "格式错误，请使用: /add token time [random] [remark]，或先 /start 完成EMOS授权后使用 /add time [random] [remark]")
 		return
 	}
 
-	token := filteredParts[1]
-	timeStr := filteredParts[2]
+	token := ""
+	timeIndex := 2
+	if len(filteredParts) >= 3 && looksLikeTime(filteredParts[1]) {
+		token = getLoggedToken(chatID)
+		timeIndex = 1
+	} else if len(filteredParts) >= 3 {
+		token = filteredParts[1]
+	} else {
+		token = getLoggedToken(chatID)
+		timeIndex = 1
+	}
+	if token == "" {
+		sendTelegramMessage(chatID, "请先使用 /start 完成EMOS授权，或使用: /add token time [random] [remark]")
+		return
+	}
+
+	isSmallAccount := false
+	stateMutex.Lock()
+	if state, exists := userStates[chatID]; exists && state.Data != nil {
+		isSmallAccount = state.Data["small_account"] == "true"
+	}
+	stateMutex.Unlock()
+	if !isSmallAccount {
+		saveLoggedToken(chatID, token)
+	}
+
+	timeStr := filteredParts[timeIndex]
 	// 替换中文冒号为英文冒号
 	timeStr = strings.ReplaceAll(timeStr, "：", ":")
 	random := false
 	remark := ""
 
 	// 检查是否有random参数
-	if len(filteredParts) > 3 {
-		if filteredParts[3] == "random" {
+	if len(filteredParts) > timeIndex+1 {
+		nextIndex := timeIndex + 1
+		if filteredParts[nextIndex] == "random" {
 			random = true
 			// 检查是否有备注参数
-			if len(filteredParts) > 4 {
+			if len(filteredParts) > nextIndex+1 {
 				// 合并剩余的所有部分作为备注
-				remark = strings.Join(filteredParts[4:], " ")
+				remark = strings.Join(filteredParts[nextIndex+1:], " ")
 			}
 		} else {
 			// 剩余的所有部分作为备注
-			remark = strings.Join(filteredParts[3:], " ")
+			remark = strings.Join(filteredParts[nextIndex:], " ")
 		}
 	}
 
@@ -1113,6 +1987,7 @@ func handleAddCommand(chatID int64, text string) {
 				RandomTime: randomTime,
 				Remark:     remark,
 				Username:   username,
+				ChatID:     chatID,
 			}
 			found = true
 			printlnUTF8(fmt.Sprintf("更新用户: %s, 用户名: %s, 备注: %s", truncateToken(token), username, remark))
@@ -1129,6 +2004,7 @@ func handleAddCommand(chatID int64, text string) {
 			RandomTime: randomTime,
 			Remark:     remark,
 			Username:   username,
+			ChatID:     chatID,
 		})
 		printlnUTF8(fmt.Sprintf("添加新用户: %s, 用户名: %s, 备注: %s", truncateToken(token), username, remark))
 	}
@@ -1160,10 +2036,14 @@ func handleRemoveCommand(chatID int64, text string) {
 	found := false
 	for i, user := range users {
 		if user.Token == token {
+			if user.ChatID != chatID && !isAdmin(chatID) {
+				sendTelegramMessage(chatID, "没有权限删除这个账号。")
+				return
+			}
 			// 删除用户
 			users = append(users[:i], users[i+1:]...)
 			found = true
-			printlnUTF8(fmt.Sprintf("删除用户: %s", token))
+			printlnUTF8(fmt.Sprintf("删除用户: %s", truncateToken(token)))
 			break
 		}
 	}
@@ -1175,6 +2055,57 @@ func handleRemoveCommand(chatID int64, text string) {
 	} else {
 		sendTelegramMessage(chatID, "用户不存在!")
 	}
+}
+
+func handleCancelCommand(chatID int64, text string) {
+	parts := strings.Fields(text)
+	target := ""
+	if len(parts) > 1 {
+		target = parts[1]
+	}
+
+	usersMutex.Lock()
+	defer usersMutex.Unlock()
+
+	admin := isAdmin(chatID)
+	matchIndex := -1
+	visibleIndices := make([]int, 0, len(users))
+	for i, user := range users {
+		if !admin && user.ChatID != chatID {
+			continue
+		}
+		visibleIndices = append(visibleIndices, i)
+		if target == "" || user.Token == target || user.Username == target {
+			if matchIndex != -1 && target == "" {
+				sendTelegramMessage(chatID, "你有多个自动签到账号，请使用 /cancel 编号、/cancel 用户名 或 /cancel token 指定要取消的账号。")
+				return
+			}
+			matchIndex = i
+		}
+	}
+
+	if len(visibleIndices) == 0 {
+		sendTelegramMessage(chatID, "你当前没有自动签到账号。")
+		return
+	}
+	if target != "" {
+		if listNumber, err := strconv.Atoi(target); err == nil {
+			if listNumber < 1 || listNumber > len(visibleIndices) {
+				sendTelegramMessage(chatID, fmt.Sprintf("编号不存在。请发送 /list 查看可取消的编号，当前可用范围: 1-%d。", len(visibleIndices)))
+				return
+			}
+			matchIndex = visibleIndices[listNumber-1]
+		}
+	}
+	if matchIndex == -1 {
+		sendTelegramMessage(chatID, "未找到要取消的自动签到账号。")
+		return
+	}
+
+	removedUser := users[matchIndex]
+	users = append(users[:matchIndex], users[matchIndex+1:]...)
+	saveData()
+	sendTelegramMessage(chatID, fmt.Sprintf("已取消账号 <b>%s</b> 的自动签到。", htmlEscape(removedUser.Username)))
 }
 
 // 转义MarkdownV2特殊字符
@@ -1203,25 +2134,31 @@ func escapeMarkdownV2(text string) string {
 
 // 处理列出用户命令
 func handleListCommand(chatID int64) {
+	admin := isAdmin(chatID)
+
 	usersMutex.Lock()
 	defer usersMutex.Unlock()
 
-	if len(users) == 0 {
-		sendTelegramMessage(chatID, "当前没有签到用户!")
+	visibleUsers := make([]User, 0, len(users))
+	for _, user := range users {
+		if admin || user.ChatID == chatID {
+			visibleUsers = append(visibleUsers, user)
+		}
+	}
+
+	if len(visibleUsers) == 0 {
+		sendTelegramMessage(chatID, "当前没有可管理的签到用户!")
 		return
 	}
 
 	message := "当前签到用户列表:\n"
-	for i, user := range users {
+	for i, user := range visibleUsers {
 		message += fmt.Sprintf("%d. Token: %s\n", i+1, truncateToken(user.Token))
 		if user.Username != "" {
-			// 确保用户名中不包含HTML特殊字符
-			safeUsername := strings.ReplaceAll(user.Username, "<", "&lt;")
-			safeUsername = strings.ReplaceAll(safeUsername, ">", "&gt;")
-			safeUsername = strings.ReplaceAll(safeUsername, "&", "&amp;")
-			safeUsername = strings.ReplaceAll(safeUsername, "\"", "&quot;")
-			safeUsername = strings.ReplaceAll(safeUsername, "'", "&#39;")
-			message += fmt.Sprintf("   用户名: <b>%s</b>\n", safeUsername)
+			message += fmt.Sprintf("   用户名: <b>%s</b>\n", htmlEscape(user.Username))
+		}
+		if admin {
+			message += fmt.Sprintf("   Owner ChatID: %d\n", user.ChatID)
 		}
 		message += fmt.Sprintf("   时间: %s\n", func() string {
 			if user.Random {
@@ -1254,15 +2191,28 @@ func handleListCommand(chatID int64) {
 
 // 处理帮助命令
 func handleHelpCommand(chatID int64) {
-	message := "使用说明:\n\n"
-	message += "/add token time [random] [remark] - 添加签到用户\n"
-	message += "  token: 签到用的Bearer Token\n"
-	message += "  time: 签到时间，格式 HH:MM\n"
-	message += "  random: 可选，随机时间签到\n"
-	message += "  remark: 可选，用户备注信息\n\n"
-	message += "/remove token - 删除签到用户\n"
-	message += "/list - 查看当前签到用户列表\n"
-	message += "/help - 显示帮助信息"
+	message := "命令列表:\n\n"
+	message += "登录/账户:\n"
+	message += "/start - 登录入口/查看登录状态\n"
+	message += "/account - 查看当前EMOS账户\n\n"
+	message += "自动签到:\n"
+	message += "/add - 按提示选择本账号或小号添加自动签到\n"
+	message += "/add token time [random] [remark] - 兼容旧格式添加\n"
+	message += "/add time [random] [remark] - 登录后免Token快速添加\n"
+	message += "/cancel [编号/用户名/Token] - 取消自动签到\n"
+	message += "/remove token - 删除自动签到账号\n"
+	message += "/list - 查看自己的签到账号\n"
+	message += "/myid - 查看自己的chat_id\n"
+	message += "/commands - 显示命令列表\n"
+	if isAdmin(chatID) {
+		message += "\n管理员模式: 已开启\n"
+		message += "/admin - 查看管理员命令\n"
+		message += "/broadcast 内容 - 向所有已联系Bot的聊天广播\n"
+		message += "/setowner 用户名或Token chat_id - 绑定账号通知归属\n"
+		message += "/admin_add chat_id - 添加管理员\n"
+		message += "/admin_remove chat_id - 移除管理员\n"
+		message += "/admin_list - 查看管理员列表"
+	}
 
 	sendTelegramMessage(chatID, message)
 }
@@ -1287,6 +2237,10 @@ func truncateToken(token string) string {
 
 // 发送消息到Telegram
 func sendTelegramMessage(chatID int64, text string) {
+	telegramMessageSender(chatID, text)
+}
+
+func defaultSendTelegramMessage(chatID int64, text string) {
 	printlnUTF8(fmt.Sprintf("发送消息到Telegram: %d, %s", chatID, text))
 
 	// 使用HTML格式，确保用户名显示为粗体
@@ -1307,7 +2261,7 @@ func sendTelegramMessage(chatID int64, text string) {
 	printlnUTF8(fmt.Sprintf("发送消息数据: %s", string(data)))
 
 	// 创建一个带超时的上下文
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
 	defer cancel()
 
 	// 创建请求
@@ -1348,6 +2302,53 @@ func sendTelegramMessage(chatID int64, text string) {
 	} else {
 		printlnUTF8("发送消息成功")
 	}
+}
+
+func setTelegramBotCommands() {
+	commands := []map[string]string{
+		{"command": "start", "description": "开始使用/登录入口"},
+		{"command": "account", "description": "查看当前EMOS账户"},
+		{"command": "add", "description": "添加自动签到账号"},
+		{"command": "cancel", "description": "取消自动签到"},
+		{"command": "list", "description": "查看签到账号列表"},
+		{"command": "myid", "description": "查看自己的chat_id"},
+		{"command": "commands", "description": "显示完整指令列表"},
+		{"command": "admin", "description": "管理员模式"},
+	}
+
+	payload := map[string]interface{}{
+		"commands": commands,
+	}
+	data, err := json.Marshal(payload)
+	if err != nil {
+		printlnUTF8(fmt.Sprintf("设置Telegram指令列表失败: %v", err))
+		return
+	}
+
+	apiURL := fmt.Sprintf("%s%s/setMyCommands", config.TelegramApiURL, config.TelegramBotToken)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, apiURL, strings.NewReader(string(data)))
+	if err != nil {
+		printlnUTF8(fmt.Sprintf("创建设置指令列表请求失败: %v", err))
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{Timeout: 8 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		printlnUTF8(fmt.Sprintf("设置Telegram指令列表失败: %v", err))
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		printlnUTF8(fmt.Sprintf("设置Telegram指令列表失败，状态码: %d", resp.StatusCode))
+		return
+	}
+	printlnUTF8("Telegram指令列表设置成功")
 }
 
 // 签到调度器
@@ -1424,6 +2425,7 @@ func checkinUsers() {
 	currentHour := now.Hour()
 	currentMinute := now.Minute()
 	currentSecond := now.Second()
+	today := now.Format("2006-01-02")
 
 	// 如果是每天的00:00:00，重置所有用户的随机时间
 	if currentHour == 0 && currentMinute == 0 && currentSecond == 0 {
@@ -1450,6 +2452,14 @@ func checkinUsers() {
 		printlnUTF8(fmt.Sprintf("用户 %d: Token=%s, Time=%s, Random=%v", i+1, truncateToken(user.Token), user.Time, user.Random))
 
 		if user.Random {
+			if user.LastCheckDate == today {
+				if user.RandomTime != "checked" {
+					user.RandomTime = "checked"
+					saveUserByToken(user)
+				}
+				continue
+			}
+
 			// 随机签到，每天随机选择一个时间
 			// 检查是否已经生成今天的随机时间
 			randomHour := 0
@@ -1524,12 +2534,14 @@ func checkinUsers() {
 			// 恢复秒级检查
 			printlnUTF8(fmt.Sprintf("随机签到: user=%s, 随机时间=%s, 当前时间=%02d:%02d:%02d", truncateToken(user.Token), user.RandomTime, currentHour, currentMinute, currentSecond))
 
-			if randomHour == currentHour && randomMinute == currentMinute && randomSecond == currentSecond {
+			if shouldRunScheduledTime(now, randomHour, randomMinute, randomSecond, user.LastCheckDate) {
 				printlnUTF8(fmt.Sprintf("开始随机签到用户: %s", truncateToken(user.Token)))
-				go performCheckin(user.Token)
 				// 签到后清空随机时间，并且当天不再重新生成
 				user.RandomTime = "checked"
-				needUpdate = true
+				user.LastCheckDate = today
+				saveUserByToken(user)
+				go performCheckin(user)
+				continue
 			}
 
 			// 跳过已经签到的用户，不再生成随机时间
@@ -1539,54 +2551,41 @@ func checkinUsers() {
 
 			// 如果需要更新用户信息，保存到数据中
 			if needUpdate {
-				usersMutex.Lock()
-				for j, u := range users {
-					if u.Token == user.Token {
-						users[j] = user
-						break
-					}
-				}
-				usersMutex.Unlock()
-				saveData()
+				saveUserByToken(user)
 			}
 		} else {
 			parts := strings.Split(user.Time, ":")
 			printlnUTF8(fmt.Sprintf("固定时间签到: user=%s, time=%s, split parts=%v", truncateToken(user.Token), user.Time, parts))
-			if len(parts) >= 2 {
-				hour, err := strconv.Atoi(parts[0])
-				if err != nil {
-					printlnUTF8(fmt.Sprintf("用户 %s 的小时格式无效: %v", truncateToken(user.Token), err))
-					continue
-				}
-				minute, err := strconv.Atoi(parts[1])
-				if err != nil {
-					printlnUTF8(fmt.Sprintf("用户 %s 的分钟格式无效: %v", truncateToken(user.Token), err))
-					continue
-				}
-				second := 0
-				if len(parts) == 3 {
-					second, _ = strconv.Atoi(parts[2])
-				}
-				printlnUTF8(fmt.Sprintf("检查用户 %s: 计划时间=%02d:%02d:%02d, 当前时间=%02d:%02d:%02d", truncateToken(user.Token), hour, minute, second, currentHour, currentMinute, currentSecond))
-				// 恢复秒级检查
-				if hour == currentHour && minute == currentMinute && second == currentSecond {
-					printlnUTF8(fmt.Sprintf("开始签到用户: %s", truncateToken(user.Token)))
-					go performCheckin(user.Token)
-				}
-			} else {
+			hour, minute, second, err := parseScheduleTime(user.Time)
+			if err != nil {
 				printlnUTF8(fmt.Sprintf("用户 %s 的时间格式无效: %s", truncateToken(user.Token), user.Time))
+				continue
+			}
+
+			printlnUTF8(fmt.Sprintf("检查用户 %s: 计划时间=%02d:%02d:%02d, 当前时间=%02d:%02d:%02d", truncateToken(user.Token), hour, minute, second, currentHour, currentMinute, currentSecond))
+			if shouldRunScheduledTime(now, hour, minute, second, user.LastCheckDate) {
+				printlnUTF8(fmt.Sprintf("开始签到用户: %s", truncateToken(user.Token)))
+				user.LastCheckDate = today
+				saveUserByToken(user)
+				go performCheckin(user)
 			}
 		}
 	}
 }
 
 // 执行签到
-func performCheckin(token string) {
+func performCheckin(user User) {
+	token := user.Token
 	// 获取用户信息
 	userInfo, err := getUserInfo(token)
 	if err != nil {
 		printlnUTF8(fmt.Sprintf("获取用户信息失败: %v", err))
+		message := fmt.Sprintf("📅 签到通知\n\n用户名: %s\n签到状态: 获取用户信息失败\n错误信息: %v", user.Username, err)
+		notifyUser(user, message)
 		return
+	}
+	if user.Username == "" {
+		user.Username = userInfo.Username
 	}
 
 	// 执行签到
@@ -1595,20 +2594,16 @@ func performCheckin(token string) {
 		printlnUTF8(fmt.Sprintf("签到失败: %v", err))
 		// 发送失败通知
 		message := fmt.Sprintf("📅 签到通知\n\n用户名: %s\n签到状态: %s\n错误信息: %v", userInfo.Username, statusText, err)
-		for chatID := range chatIds {
-			sendTelegramMessage(chatID, message)
-		}
+		notifyUser(user, message)
 		return
 	}
 
 	// 发送通知
 	if statusText == "签到成功" {
-		sendCheckinNotification(userInfo.Username, result, statusText)
+		sendCheckinNotification(user, result, statusText)
 	} else {
 		message := fmt.Sprintf("📅 签到通知\n\n用户名: %s\n签到状态: %s", userInfo.Username, statusText)
-		for chatID := range chatIds {
-			sendTelegramMessage(chatID, message)
-		}
+		notifyUser(user, message)
 	}
 	printlnUTF8(fmt.Sprintf("签到结果: %s - %s", userInfo.Username, statusText))
 }
@@ -1777,7 +2772,7 @@ func checkin(token string) (CheckinResult, error, string) {
 	printlnUTF8("=== 签到请求 ===")
 	printlnUTF8(fmt.Sprintf("URL: %s", url))
 	printlnUTF8("Method: PUT")
-	printlnUTF8(fmt.Sprintf("Token: %s", token))
+	printlnUTF8(fmt.Sprintf("Token: %s", truncateToken(token)))
 
 	// 使用PUT方法，请求体为nil
 	req, err := http.NewRequest(http.MethodPut, url, nil)
@@ -1838,12 +2833,10 @@ func checkin(token string) (CheckinResult, error, string) {
 }
 
 // 发送签到通知
-func sendCheckinNotification(username string, result CheckinResult, statusText string) {
+func sendCheckinNotification(user User, result CheckinResult, statusText string) {
 	message := fmt.Sprintf("📅 签到通知\n\n用户名: %s\n签到状态: %s\n累计签到: %d 天\n获得萝卜: %d 个\n今日签到排名: %d",
-		username, statusText, result.ContinuousDays, result.EarnPoint, result.SignIndex)
-	for chatID := range chatIds {
-		sendTelegramMessage(chatID, message)
-	}
+		user.Username, statusText, result.ContinuousDays, result.EarnPoint, result.SignIndex)
+	notifyUser(user, message)
 }
 
 // 状态调度器
@@ -1856,7 +2849,10 @@ func statusScheduler() {
 		usersMutex.Lock()
 		userCount := len(users)
 		usersMutex.Unlock()
-		printlnUTF8(fmt.Sprintf("[%s] 系统运行中 - 当前用户: %d, 当前chat_ids: %d", time.Now().In(beijingLoc).Format("15:04:05"), userCount, len(chatIds)))
+		chatMutex.Lock()
+		chatCount := len(chatIds)
+		chatMutex.Unlock()
+		printlnUTF8(fmt.Sprintf("[%s] 系统运行中 - 当前用户: %d, 当前chat_ids: %d", time.Now().In(beijingLoc).Format("15:04:05"), userCount, chatCount))
 	}
 }
 
@@ -1913,17 +2909,66 @@ Token即将重置，请及时更换您的签到Token！
 
 	printlnUTF8("发送Token更换提醒通知...")
 
-	for chatID := range chatIds {
+	usersMutex.Lock()
+	targets := make(map[int64]bool)
+	for _, user := range users {
+		if user.ChatID != 0 {
+			targets[user.ChatID] = true
+		}
+	}
+	usersMutex.Unlock()
+
+	for chatID := range targets {
 		sendTelegramMessage(chatID, message)
 	}
 }
 
 // Telegram消息轮询
+func getInitialTelegramOffset() int64 {
+	apiURL := fmt.Sprintf("%s%s/getUpdates?offset=-1&timeout=0", config.TelegramApiURL, config.TelegramBotToken)
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiURL, nil)
+	if err != nil {
+		printlnUTF8(fmt.Sprintf("初始化Telegram offset失败: %v", err))
+		return 0
+	}
+
+	client := &http.Client{Timeout: 8 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		printlnUTF8(fmt.Sprintf("初始化Telegram offset失败: %v", err))
+		return 0
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		printlnUTF8(fmt.Sprintf("读取初始化Telegram offset失败: %v", err))
+		return 0
+	}
+
+	var result struct {
+		Ok     bool `json:"ok"`
+		Result []struct {
+			UpdateID int64 `json:"update_id"`
+		} `json:"result"`
+	}
+	if err := json.Unmarshal(body, &result); err != nil || !result.Ok || len(result.Result) == 0 {
+		return 0
+	}
+
+	offset := result.Result[len(result.Result)-1].UpdateID + 1
+	printlnUTF8(fmt.Sprintf("Telegram offset初始化为: %d", offset))
+	return offset
+}
+
 func telegramPolling() {
 	printlnUTF8("开始Telegram轮询...")
 
 	// 存储最后处理的消息ID
-	var offset int64 = 0
+	offset := getInitialTelegramOffset()
 
 	for {
 		// 捕获循环中的panic
@@ -1934,11 +2979,11 @@ func telegramPolling() {
 		}()
 
 		// 调用getUpdates API
-		apiURL := fmt.Sprintf("%s%s/getUpdates?offset=%d&timeout=30", config.TelegramApiURL, config.TelegramBotToken, offset)
+		apiURL := fmt.Sprintf("%s%s/getUpdates?offset=%d&timeout=10", config.TelegramApiURL, config.TelegramBotToken, offset)
 		printlnUTF8(fmt.Sprintf("获取Telegram更新: %s", apiURL))
 
 		// 创建一个带超时的上下文
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 
 		// 创建请求
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiURL, nil)
@@ -1953,7 +2998,7 @@ func telegramPolling() {
 		printlnUTF8("发送Telegram请求...")
 		// 使用与setupNetwork函数中相同的代理设置
 		client := &http.Client{
-			Timeout: 30 * time.Second,
+			Timeout: 15 * time.Second,
 		}
 		resp, err := client.Do(req)
 		if err != nil {
@@ -1978,8 +3023,7 @@ func telegramPolling() {
 			continue
 		}
 
-		// 打印响应体
-		printlnUTF8(fmt.Sprintf("响应体: %s", string(responseBody)))
+		printlnUTF8(fmt.Sprintf("Telegram响应长度: %d", len(responseBody)))
 
 		// 解析响应
 		var result struct {
@@ -1987,6 +3031,11 @@ func telegramPolling() {
 			Result []struct {
 				UpdateID int64 `json:"update_id"`
 				Message  struct {
+					From struct {
+						ID        int64  `json:"id"`
+						Username  string `json:"username"`
+						FirstName string `json:"first_name"`
+					} `json:"from"`
 					Chat struct {
 						ID int64 `json:"id"`
 					} `json:"chat"`
@@ -2026,9 +3075,14 @@ func telegramPolling() {
 			if update.Message.Text != "" {
 				chatID := update.Message.Chat.ID
 				text := update.Message.Text
+				profile := TelegramProfile{
+					ID:        chatID,
+					Username:  update.Message.From.Username,
+					FirstName: update.Message.From.FirstName,
+				}
 
 				// 存储chat_id
-				chatIds[chatID] = true
+				rememberChatID(chatID)
 				printlnUTF8(fmt.Sprintf("存储chat_id: %d", chatID))
 
 				// 检查用户状态
@@ -2046,38 +3100,10 @@ func telegramPolling() {
 				trimmedText := strings.TrimSpace(text)
 				// 调试日志：打印处理命令前的信息
 				printlnUTF8("=== 处理命令 ===")
-				printlnUTF8(fmt.Sprintf("原始文本: '%s'", text))
+				printlnUTF8(fmt.Sprintf("原始文本: '%s'", sanitizeTelegramText(text)))
 				printlnUTF8(fmt.Sprintf("去除空格后: '%s'", trimmedText))
 
-				// 处理 /add 命令
-				if strings.HasPrefix(trimmedText, "/add") {
-					// 检查是否是单独的 /add 命令
-					if trimmedText == "/add" {
-						// 开始一步一步添加用户
-						printlnUTF8("调用 startAddUser")
-						startAddUser(chatID)
-					} else {
-						// 兼容旧格式
-						printlnUTF8("调用 handleAddCommand (旧格式)")
-						handleAddCommand(chatID, text)
-					}
-				} else if strings.HasPrefix(trimmedText, "/remove") {
-					// 检查是否是单独的 /remove 命令
-					if trimmedText == "/remove" {
-						// 开始一步一步删除用户
-						startRemoveUser(chatID)
-					} else {
-						// 兼容旧格式
-						handleRemoveCommand(chatID, text)
-					}
-				} else if trimmedText == "/list" {
-					printlnUTF8("调用 handleListCommand")
-					handleListCommand(chatID)
-				} else if trimmedText == "/help" {
-					handleHelpCommand(chatID)
-				} else {
-					sendTelegramMessage(chatID, "请使用 /help 查看可用命令")
-				}
+				processTelegramCommand(chatID, text, profile)
 			}
 		}
 

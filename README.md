@@ -39,7 +39,7 @@
 
 4. **设置Telegram Bot**
    - 已创建Bot：@EmosCheckinBot
-   - Token：8754758110:AAGscR-51usqNuB6hkEld7ovO_eQm5w-zCs
+   - Token：通过环境变量 `TELEGRAM_BOT_TOKEN` 配置
 
 ## Telegram Bot命令
 

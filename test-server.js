@@ -8,7 +8,7 @@ console.log('启动时间:', new Date().toISOString());
 const CONFIG = {
   PORT: 3000,
   API_BASE_URL: 'https://emos.best',
-  TELEGRAM_BOT_TOKEN: '8754758110:AAGscR-51usqNuB6hkEld7ovO_eQm5w-zCs',
+  TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN || '',
   TELEGRAM_API_URL: 'https://api.telegram.org/bot'
 };
 

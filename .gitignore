@@ -3,6 +3,7 @@
 *.dll
 *.so
 *.dylib
+bot-linux-amd64
 
 # 日志文件
 *.log
@@ -14,6 +15,7 @@ debug.log
 data.json
 
 # 临时文件
+tmp/
 *.tmp
 *.bak
 *.swp
