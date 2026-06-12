@@ -2642,6 +2642,20 @@ func getUserInfo(token string) (UserInfo, error) {
 	return userInfo, nil
 }
 
+func normalizeSignContent(content string) string {
+	content = strings.TrimSpace(content)
+	if content != "" && len([]rune(content)) <= 10 {
+		return content
+	}
+
+	shortContent := []string{
+		"签到", "打卡", "到", "在", "好", "棒", "冲",
+		"1", "2", "3", "ok", "hi", "go", "yes",
+		"✨", "🎉", "👍",
+	}
+	return shortContent[rand.Intn(len(shortContent))]
+}
+
 // 执行签到
 func checkin(token string) (CheckinResult, error, string) {
 	var result CheckinResult
@@ -2764,6 +2778,7 @@ func checkin(token string) (CheckinResult, error, string) {
 		// 混合内容
 		content = mixedContent[rand.Intn(len(mixedContent))]
 	}
+	content = normalizeSignContent(content)
 
 	// 将content作为查询参数添加到URL中
 	url := fmt.Sprintf("%s/api/user/sign?content=%s", config.ApiBaseURL, url.QueryEscape(content))

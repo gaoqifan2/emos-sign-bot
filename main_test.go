@@ -191,6 +191,17 @@ func TestScheduledTimeSkipsAlreadyCheckedToday(t *testing.T) {
 	}
 }
 
+func TestNormalizeSignContentLimitsToTenCharacters(t *testing.T) {
+	content := normalizeSignContent("never give up")
+
+	if len([]rune(content)) > 10 {
+		t.Fatalf("content length = %d, want <= 10", len([]rune(content)))
+	}
+	if content == "" {
+		t.Fatal("content should not be empty")
+	}
+}
+
 func TestApplyTokenOwnersFromDataOverwritesChatID(t *testing.T) {
 	resetTestState(t)
 
