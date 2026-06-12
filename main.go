@@ -2644,7 +2644,7 @@ func getUserInfo(token string) (UserInfo, error) {
 
 func normalizeSignContent(content string) string {
 	content = strings.TrimSpace(content)
-	if content != "" && len([]rune(content)) <= 10 {
+	if isValidSignContent(content) {
 		return content
 	}
 
@@ -2654,6 +2654,24 @@ func normalizeSignContent(content string) string {
 		"✨", "🎉", "👍",
 	}
 	return shortContent[rand.Intn(len(shortContent))]
+}
+
+func isValidSignContent(content string) bool {
+	content = strings.TrimSpace(content)
+	return content != "" && len([]rune(content)) <= 10
+}
+
+func pickSignContent(contents []string) string {
+	validContents := make([]string, 0, len(contents))
+	for _, content := range contents {
+		if isValidSignContent(content) {
+			validContents = append(validContents, strings.TrimSpace(content))
+		}
+	}
+	if len(validContents) == 0 {
+		return normalizeSignContent("")
+	}
+	return validContents[rand.Intn(len(validContents))]
 }
 
 // 执行签到
@@ -2764,19 +2782,19 @@ func checkin(token string) (CheckinResult, error, string) {
 	switch contentType {
 	case 0:
 		// 纯数字
-		content = pureNumbers[rand.Intn(len(pureNumbers))]
+		content = pickSignContent(pureNumbers)
 	case 1:
 		// 中文文字
-		content = chineseText[rand.Intn(len(chineseText))]
+		content = pickSignContent(chineseText)
 	case 2:
 		// Emoji
-		content = emojiText[rand.Intn(len(emojiText))]
+		content = pickSignContent(emojiText)
 	case 3:
 		// 英文
-		content = englishText[rand.Intn(len(englishText))]
+		content = pickSignContent(englishText)
 	case 4:
 		// 混合内容
-		content = mixedContent[rand.Intn(len(mixedContent))]
+		content = pickSignContent(mixedContent)
 	}
 	content = normalizeSignContent(content)
 

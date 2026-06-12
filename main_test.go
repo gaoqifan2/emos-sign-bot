@@ -202,6 +202,15 @@ func TestNormalizeSignContentLimitsToTenCharacters(t *testing.T) {
 	}
 }
 
+func TestPickSignContentSkipsLongMessages(t *testing.T) {
+	for i := 0; i < 20; i++ {
+		content := pickSignContent([]string{"never give up", "let's do this", "签到"})
+		if content != "签到" {
+			t.Fatalf("content = %q, want only the valid short message", content)
+		}
+	}
+}
+
 func TestApplyTokenOwnersFromDataOverwritesChatID(t *testing.T) {
 	resetTestState(t)
 
