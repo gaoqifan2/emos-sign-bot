@@ -93,9 +93,10 @@ type TelegramChat struct {
 }
 
 type TelegramMessage struct {
-	From TelegramUser `json:"from"`
-	Chat TelegramChat `json:"chat"`
-	Text string       `json:"text"`
+	MessageID int64        `json:"message_id"`
+	From      TelegramUser `json:"from"`
+	Chat      TelegramChat `json:"chat"`
+	Text      string       `json:"text"`
 }
 
 type TelegramCallbackQuery struct {
@@ -1215,7 +1216,20 @@ func processTelegramCallback(callback TelegramCallbackQuery) {
 			return
 		}
 		answerTelegramCallbackQuery(callback.ID, "")
-		handleListCommand(chatID, fmt.Sprintf("/list %d", page))
+		message, keyboard, ok := buildListMessage(chatID, page)
+		if !ok {
+			return
+		}
+		if callback.Message.MessageID != 0 {
+			if editTelegramMessageWithInlineKeyboard(chatID, callback.Message.MessageID, message, keyboard) {
+				return
+			}
+		}
+		sendTelegramMessageWithInlineKeyboard(chatID, message, keyboard)
+		return
+	}
+	if data == "noop" {
+		answerTelegramCallbackQuery(callback.ID, "")
 		return
 	}
 
@@ -2198,9 +2212,21 @@ func escapeMarkdownV2(text string) string {
 const listPageSize = 5
 
 func handleListCommand(chatID int64, text string) {
-	admin := isAdmin(chatID)
 	page := parseListPage(text)
+	message, keyboard, ok := buildListMessage(chatID, page)
+	if !ok {
+		return
+	}
 
+	if len(keyboard) > 0 {
+		sendTelegramMessageWithInlineKeyboard(chatID, message, keyboard)
+		return
+	}
+	sendTelegramMessage(chatID, message)
+}
+
+func buildListMessage(chatID int64, page int) (string, [][]InlineKeyboardButton, bool) {
+	admin := isAdmin(chatID)
 	usersMutex.Lock()
 	defer usersMutex.Unlock()
 
@@ -2213,7 +2239,7 @@ func handleListCommand(chatID int64, text string) {
 
 	if len(visibleUsers) == 0 {
 		sendTelegramMessage(chatID, "当前没有可管理的签到用户!")
-		return
+		return "", nil, false
 	}
 
 	totalPages := (len(visibleUsers) + listPageSize - 1) / listPageSize
@@ -2234,13 +2260,8 @@ func handleListCommand(chatID int64, text string) {
 		}
 	}
 	message += "\n💡 取消签到：<code>/cancel 编号</code>"
-
 	keyboard := buildListPaginationKeyboard(page, totalPages)
-	if len(keyboard) > 0 {
-		sendTelegramMessageWithInlineKeyboard(chatID, message, keyboard)
-		return
-	}
-	sendTelegramMessage(chatID, message)
+	return message, keyboard, true
 }
 
 func parseListPage(text string) int {
@@ -2312,24 +2333,68 @@ func buildListPaginationKeyboard(page, totalPages int) [][]InlineKeyboardButton 
 	if totalPages <= 1 {
 		return nil
 	}
-	const buttonsPerRow = 5
-	keyboard := make([][]InlineKeyboardButton, 0, (totalPages+buttonsPerRow-1)/buttonsPerRow)
-	for i := 1; i <= totalPages; i++ {
-		text := strconv.Itoa(i)
-		if i == page {
-			text = "·" + text + "·"
-		}
-		button := InlineKeyboardButton{
-			Text:         text,
-			CallbackData: fmt.Sprintf("list_page:%d", i),
-		}
-		if len(keyboard) == 0 || len(keyboard[len(keyboard)-1]) >= buttonsPerRow {
-			keyboard = append(keyboard, []InlineKeyboardButton{button})
+
+	pageButtons := make([]InlineKeyboardButton, 0, 7)
+	for _, item := range compactPageItems(page, totalPages) {
+		if item == 0 {
+			pageButtons = append(pageButtons, InlineKeyboardButton{Text: "…", CallbackData: "noop"})
 			continue
 		}
-		keyboard[len(keyboard)-1] = append(keyboard[len(keyboard)-1], button)
+		text := strconv.Itoa(item)
+		callbackData := fmt.Sprintf("list_page:%d", item)
+		if item == page {
+			text = "·" + text + "·"
+			callbackData = "noop"
+		}
+		pageButtons = append(pageButtons, InlineKeyboardButton{
+			Text:         text,
+			CallbackData: callbackData,
+		})
+	}
+
+	navButtons := make([]InlineKeyboardButton, 0, 2)
+	if page > 1 {
+		navButtons = append(navButtons, InlineKeyboardButton{Text: "⬅️ 上一页", CallbackData: fmt.Sprintf("list_page:%d", page-1)})
+	}
+	if page < totalPages {
+		navButtons = append(navButtons, InlineKeyboardButton{Text: "下一页 ➡️", CallbackData: fmt.Sprintf("list_page:%d", page+1)})
+	}
+
+	keyboard := [][]InlineKeyboardButton{pageButtons}
+	if len(navButtons) > 0 {
+		keyboard = append(keyboard, navButtons)
 	}
 	return keyboard
+}
+
+func compactPageItems(page, totalPages int) []int {
+	if totalPages <= 5 {
+		items := make([]int, 0, totalPages)
+		for i := 1; i <= totalPages; i++ {
+			items = append(items, i)
+		}
+		return items
+	}
+
+	seen := make(map[int]bool)
+	raw := []int{1, page - 1, page, page + 1, totalPages}
+	pages := make([]int, 0, len(raw))
+	for _, item := range raw {
+		if item < 1 || item > totalPages || seen[item] {
+			continue
+		}
+		seen[item] = true
+		pages = append(pages, item)
+	}
+
+	items := make([]int, 0, len(pages)+2)
+	for i, item := range pages {
+		if i > 0 && item-pages[i-1] > 1 {
+			items = append(items, 0)
+		}
+		items = append(items, item)
+	}
+	return items
 }
 
 // 处理帮助命令
@@ -2388,7 +2453,7 @@ func sendTelegramMessageWithInlineKeyboard(chatID int64, text string, keyboard [
 }
 
 func defaultSendTelegramMessage(chatID int64, text string) {
-	defaultSendTelegramPayload(map[string]interface{}{
+	defaultSendTelegramPayload("sendMessage", map[string]interface{}{
 		"chat_id":    chatID,
 		"text":       text,
 		"parse_mode": "HTML",
@@ -2408,17 +2473,32 @@ func defaultSendTelegramMessageWithInlineKeyboard(chatID int64, text string, key
 			"inline_keyboard": keyboard,
 		}
 	}
-	defaultSendTelegramPayload(payload)
+	defaultSendTelegramPayload("sendMessage", payload)
 }
 
-func defaultSendTelegramPayload(payload map[string]interface{}) {
+func editTelegramMessageWithInlineKeyboard(chatID int64, messageID int64, text string, keyboard [][]InlineKeyboardButton) bool {
+	payload := map[string]interface{}{
+		"chat_id":    chatID,
+		"message_id": messageID,
+		"text":       text,
+		"parse_mode": "HTML",
+	}
+	if len(keyboard) > 0 {
+		payload["reply_markup"] = map[string]interface{}{
+			"inline_keyboard": keyboard,
+		}
+	}
+	return defaultSendTelegramPayload("editMessageText", payload)
+}
+
+func defaultSendTelegramPayload(method string, payload map[string]interface{}) bool {
 	data, err := json.Marshal(payload)
 	if err != nil {
 		printlnUTF8(fmt.Sprintf("JSON编码失败: %v", err))
-		return
+		return false
 	}
 
-	apiURL := fmt.Sprintf("%s%s/sendMessage", config.TelegramApiURL, config.TelegramBotToken)
+	apiURL := fmt.Sprintf("%s%s/%s", config.TelegramApiURL, config.TelegramBotToken, method)
 	printlnUTF8(fmt.Sprintf("发送消息URL: %s", apiURL))
 	printlnUTF8(fmt.Sprintf("发送消息数据: %s", string(data)))
 
@@ -2430,7 +2510,7 @@ func defaultSendTelegramPayload(payload map[string]interface{}) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, apiURL, strings.NewReader(string(data)))
 	if err != nil {
 		printlnUTF8(fmt.Sprintf("创建请求失败: %v", err))
-		return
+		return false
 	}
 
 	// 设置请求头
@@ -2445,7 +2525,7 @@ func defaultSendTelegramPayload(payload map[string]interface{}) {
 	resp, err := client.Do(req)
 	if err != nil {
 		printlnUTF8(fmt.Sprintf("发送消息失败: %v", err))
-		return
+		return false
 	}
 	defer resp.Body.Close()
 
@@ -2453,7 +2533,7 @@ func defaultSendTelegramPayload(payload map[string]interface{}) {
 	responseBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		printlnUTF8(fmt.Sprintf("读取响应失败: %v", err))
-		return
+		return false
 	}
 
 	printlnUTF8(fmt.Sprintf("发送消息响应状态码: %d", resp.StatusCode))
@@ -2461,9 +2541,11 @@ func defaultSendTelegramPayload(payload map[string]interface{}) {
 
 	if resp.StatusCode != http.StatusOK {
 		printlnUTF8(fmt.Sprintf("发送消息失败，状态码: %d", resp.StatusCode))
+		return false
 	} else {
 		printlnUTF8("发送消息成功")
 	}
+	return true
 }
 
 func answerTelegramCallbackQuery(callbackID string, text string) {

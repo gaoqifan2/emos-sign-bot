@@ -302,7 +302,12 @@ func TestAdminListPaginatesFiveUsersPerPage(t *testing.T) {
 	if strings.Contains(sent, "6. <b>user6</b>") {
 		t.Fatalf("first page should not include sixth account: %q", sent)
 	}
-	if len(keyboard) != 1 || len(keyboard[0]) != 2 || keyboard[0][0].Text != "·1·" || keyboard[0][1].CallbackData != "list_page:2" {
+	if len(keyboard) != 2 ||
+		len(keyboard[0]) != 2 ||
+		keyboard[0][0].Text != "·1·" ||
+		keyboard[0][1].CallbackData != "list_page:2" ||
+		len(keyboard[1]) != 1 ||
+		keyboard[1][0].CallbackData != "list_page:2" {
 		t.Fatalf("numeric page buttons missing: %#v", keyboard)
 	}
 }
@@ -338,8 +343,27 @@ func TestAdminListSecondPageKeepsGlobalNumbers(t *testing.T) {
 	if strings.Contains(sent, "1. <b>user1</b>") {
 		t.Fatalf("second page should not include first account: %q", sent)
 	}
-	if len(keyboard) != 1 || len(keyboard[0]) != 2 || keyboard[0][0].CallbackData != "list_page:1" || keyboard[0][1].Text != "·2·" {
+	if len(keyboard) != 2 ||
+		len(keyboard[0]) != 2 ||
+		keyboard[0][0].CallbackData != "list_page:1" ||
+		keyboard[0][1].Text != "·2·" ||
+		len(keyboard[1]) != 1 ||
+		keyboard[1][0].CallbackData != "list_page:1" {
 		t.Fatalf("numeric page buttons missing: %#v", keyboard)
+	}
+}
+
+func TestCompactPageItemsUsesEllipsisAroundCurrentPage(t *testing.T) {
+	items := compactPageItems(5, 7)
+	want := []int{1, 0, 4, 5, 6, 7}
+
+	if len(items) != len(want) {
+		t.Fatalf("items = %#v, want %#v", items, want)
+	}
+	for i := range want {
+		if items[i] != want[i] {
+			t.Fatalf("items = %#v, want %#v", items, want)
+		}
 	}
 }
 
