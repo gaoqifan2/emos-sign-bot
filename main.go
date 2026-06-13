@@ -82,6 +82,40 @@ type TelegramProfile struct {
 	FirstName string
 }
 
+type TelegramUser struct {
+	ID        int64  `json:"id"`
+	Username  string `json:"username"`
+	FirstName string `json:"first_name"`
+}
+
+type TelegramChat struct {
+	ID int64 `json:"id"`
+}
+
+type TelegramMessage struct {
+	From TelegramUser `json:"from"`
+	Chat TelegramChat `json:"chat"`
+	Text string       `json:"text"`
+}
+
+type TelegramCallbackQuery struct {
+	ID      string          `json:"id"`
+	From    TelegramUser    `json:"from"`
+	Message TelegramMessage `json:"message"`
+	Data    string          `json:"data"`
+}
+
+type TelegramUpdate struct {
+	UpdateID      int64                 `json:"update_id"`
+	Message       TelegramMessage       `json:"message"`
+	CallbackQuery TelegramCallbackQuery `json:"callback_query"`
+}
+
+type InlineKeyboardButton struct {
+	Text         string `json:"text"`
+	CallbackData string `json:"callback_data,omitempty"`
+}
+
 // 数据存储结构
 type DataStorage struct {
 	Users        []User             `json:"users"`
@@ -92,16 +126,18 @@ type DataStorage struct {
 }
 
 var (
-	config                Config
-	users                 []User
-	chatIds               = make(map[int64]bool)
-	loggedTokens          = make(map[int64]string)
-	adminChatIds          = make(map[int64]bool)
-	authUsers             = make(map[int64]AuthUser)
-	usersMutex            sync.Mutex
-	chatMutex             sync.Mutex
-	beijingLoc            *time.Location // 北京时间时区
-	telegramMessageSender = defaultSendTelegramMessage
+	config                   Config
+	users                    []User
+	chatIds                  = make(map[int64]bool)
+	loggedTokens             = make(map[int64]string)
+	adminChatIds             = make(map[int64]bool)
+	authUsers                = make(map[int64]AuthUser)
+	usersMutex               sync.Mutex
+	chatMutex                sync.Mutex
+	beijingLoc               *time.Location // 北京时间时区
+	telegramMessageSender    = defaultSendTelegramMessage
+	telegramKeyboardSender   = defaultSendTelegramMessageWithInlineKeyboard
+	telegramCallbackAnswerer = defaultAnswerTelegramCallbackQuery
 	// 用户状态管理
 	userStates = make(map[int64]UserState)
 	stateMutex sync.Mutex
@@ -1130,6 +1166,63 @@ func firstString(values map[string]interface{}, keys ...string) string {
 	return ""
 }
 
+func processTelegramMessage(chatID int64, text string, profile TelegramProfile) {
+	// 存储chat_id
+	rememberChatID(chatID)
+	printlnUTF8(fmt.Sprintf("存储chat_id: %d", chatID))
+
+	// 检查用户状态
+	stateMutex.Lock()
+	state, exists := userStates[chatID]
+	stateMutex.Unlock()
+
+	// 如果用户有状态，处理状态相关的输入
+	if exists {
+		handleUserState(chatID, text, state)
+		return
+	}
+
+	// 处理命令
+	trimmedText := strings.TrimSpace(text)
+	// 调试日志：打印处理命令前的信息
+	printlnUTF8("=== 处理命令 ===")
+	printlnUTF8(fmt.Sprintf("原始文本: '%s'", sanitizeTelegramText(text)))
+	printlnUTF8(fmt.Sprintf("去除空格后: '%s'", trimmedText))
+
+	processTelegramCommand(chatID, text, profile)
+}
+
+func processTelegramCallback(callback TelegramCallbackQuery) {
+	data := strings.TrimSpace(callback.Data)
+	chatID := callback.Message.Chat.ID
+	if chatID == 0 {
+		chatID = callback.From.ID
+	}
+	profile := TelegramProfile{
+		ID:        callback.From.ID,
+		Username:  callback.From.Username,
+		FirstName: callback.From.FirstName,
+	}
+	if chatID != 0 {
+		rememberChatID(chatID)
+	}
+
+	if strings.HasPrefix(data, "list_page:") {
+		pageText := strings.TrimPrefix(data, "list_page:")
+		page, err := strconv.Atoi(pageText)
+		if err != nil || page < 1 {
+			answerTelegramCallbackQuery(callback.ID, "页码无效")
+			return
+		}
+		answerTelegramCallbackQuery(callback.ID, "")
+		handleListCommand(chatID, fmt.Sprintf("/list %d", page))
+		return
+	}
+
+	answerTelegramCallbackQuery(callback.ID, "未知操作")
+	_ = profile
+}
+
 // 处理Telegram webhook
 func handleWebhook(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
@@ -1137,19 +1230,7 @@ func handleWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var update struct {
-		Message struct {
-			From struct {
-				ID        int64  `json:"id"`
-				Username  string `json:"username"`
-				FirstName string `json:"first_name"`
-			} `json:"from"`
-			Chat struct {
-				ID int64 `json:"id"`
-			} `json:"chat"`
-			Text string `json:"text"`
-		} `json:"message"`
-	}
+	var update TelegramUpdate
 
 	if err := json.NewDecoder(r.Body).Decode(&update); err != nil {
 		http.Error(w, "Invalid request", http.StatusBadRequest)
@@ -1160,34 +1241,15 @@ func handleWebhook(w http.ResponseWriter, r *http.Request) {
 		chatID := update.Message.Chat.ID
 		text := update.Message.Text
 		profile := TelegramProfile{
-			ID:        chatID,
+			ID:        update.Message.From.ID,
 			Username:  update.Message.From.Username,
 			FirstName: update.Message.From.FirstName,
 		}
 
-		// 存储chat_id
-		rememberChatID(chatID)
-		printlnUTF8(fmt.Sprintf("存储chat_id: %d", chatID))
-
-		// 检查用户状态
-		stateMutex.Lock()
-		state, exists := userStates[chatID]
-		stateMutex.Unlock()
-
-		// 如果用户有状态，处理状态相关的输入
-		if exists {
-			handleUserState(chatID, text, state)
-			return
-		}
-
-		// 处理命令
-		trimmedText := strings.TrimSpace(text)
-		// 调试日志：打印处理命令前的信息
-		printlnUTF8("=== 处理命令 ===")
-		printlnUTF8(fmt.Sprintf("原始文本: '%s'", sanitizeTelegramText(text)))
-		printlnUTF8(fmt.Sprintf("去除空格后: '%s'", trimmedText))
-
-		processTelegramCommand(chatID, text, profile)
+		processTelegramMessage(chatID, text, profile)
+	}
+	if update.CallbackQuery.Data != "" {
+		processTelegramCallback(update.CallbackQuery)
 	}
 
 	w.WriteHeader(http.StatusOK)
@@ -2172,11 +2234,11 @@ func handleListCommand(chatID int64, text string) {
 		}
 	}
 	message += "\n💡 取消签到：<code>/cancel 编号</code>"
-	if page < totalPages {
-		message += fmt.Sprintf("\n➡️ 下一页：<code>/list %d</code>", page+1)
-	}
-	if page > 1 {
-		message += fmt.Sprintf("\n⬅️ 上一页：<code>/list %d</code>", page-1)
+
+	keyboard := buildListPaginationKeyboard(page, totalPages)
+	if len(keyboard) > 0 {
+		sendTelegramMessageWithInlineKeyboard(chatID, message, keyboard)
+		return
 	}
 	sendTelegramMessage(chatID, message)
 }
@@ -2233,6 +2295,26 @@ func formatRandomTime(randomTime string) string {
 	return randomTime
 }
 
+func buildListPaginationKeyboard(page, totalPages int) [][]InlineKeyboardButton {
+	buttons := make([]InlineKeyboardButton, 0, 2)
+	if page > 1 {
+		buttons = append(buttons, InlineKeyboardButton{
+			Text:         "⬅️ 上一页",
+			CallbackData: fmt.Sprintf("list_page:%d", page-1),
+		})
+	}
+	if page < totalPages {
+		buttons = append(buttons, InlineKeyboardButton{
+			Text:         "下一页 ➡️",
+			CallbackData: fmt.Sprintf("list_page:%d", page+1),
+		})
+	}
+	if len(buttons) == 0 {
+		return nil
+	}
+	return [][]InlineKeyboardButton{buttons}
+}
+
 // 处理帮助命令
 func handleHelpCommand(chatID int64) {
 	message := "命令列表:\n\n"
@@ -2284,16 +2366,35 @@ func sendTelegramMessage(chatID int64, text string) {
 	telegramMessageSender(chatID, text)
 }
 
+func sendTelegramMessageWithInlineKeyboard(chatID int64, text string, keyboard [][]InlineKeyboardButton) {
+	telegramKeyboardSender(chatID, text, keyboard)
+}
+
 func defaultSendTelegramMessage(chatID int64, text string) {
+	defaultSendTelegramPayload(map[string]interface{}{
+		"chat_id":    chatID,
+		"text":       text,
+		"parse_mode": "HTML",
+	})
+}
+
+func defaultSendTelegramMessageWithInlineKeyboard(chatID int64, text string, keyboard [][]InlineKeyboardButton) {
 	printlnUTF8(fmt.Sprintf("发送消息到Telegram: %d, %s", chatID, text))
 
-	// 使用HTML格式，确保用户名显示为粗体
 	payload := map[string]interface{}{
 		"chat_id":    chatID,
 		"text":       text,
 		"parse_mode": "HTML",
 	}
+	if len(keyboard) > 0 {
+		payload["reply_markup"] = map[string]interface{}{
+			"inline_keyboard": keyboard,
+		}
+	}
+	defaultSendTelegramPayload(payload)
+}
 
+func defaultSendTelegramPayload(payload map[string]interface{}) {
 	data, err := json.Marshal(payload)
 	if err != nil {
 		printlnUTF8(fmt.Sprintf("JSON编码失败: %v", err))
@@ -2345,6 +2446,52 @@ func defaultSendTelegramMessage(chatID int64, text string) {
 		printlnUTF8(fmt.Sprintf("发送消息失败，状态码: %d", resp.StatusCode))
 	} else {
 		printlnUTF8("发送消息成功")
+	}
+}
+
+func answerTelegramCallbackQuery(callbackID string, text string) {
+	telegramCallbackAnswerer(callbackID, text)
+}
+
+func defaultAnswerTelegramCallbackQuery(callbackID string, text string) {
+	if strings.TrimSpace(callbackID) == "" {
+		return
+	}
+	payload := map[string]interface{}{
+		"callback_query_id": callbackID,
+	}
+	if strings.TrimSpace(text) != "" {
+		payload["text"] = text
+	}
+
+	data, err := json.Marshal(payload)
+	if err != nil {
+		printlnUTF8(fmt.Sprintf("回调响应JSON编码失败: %v", err))
+		return
+	}
+
+	apiURL := fmt.Sprintf("%s%s/answerCallbackQuery", config.TelegramApiURL, config.TelegramBotToken)
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, apiURL, strings.NewReader(string(data)))
+	if err != nil {
+		printlnUTF8(fmt.Sprintf("创建回调响应请求失败: %v", err))
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{Timeout: 8 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		printlnUTF8(fmt.Sprintf("发送回调响应失败: %v", err))
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		printlnUTF8(fmt.Sprintf("发送回调响应失败，状态码: %d, 响应: %s", resp.StatusCode, string(body)))
 	}
 }
 
@@ -3108,22 +3255,9 @@ func telegramPolling() {
 
 		// 解析响应
 		var result struct {
-			Ok     bool `json:"ok"`
-			Result []struct {
-				UpdateID int64 `json:"update_id"`
-				Message  struct {
-					From struct {
-						ID        int64  `json:"id"`
-						Username  string `json:"username"`
-						FirstName string `json:"first_name"`
-					} `json:"from"`
-					Chat struct {
-						ID int64 `json:"id"`
-					} `json:"chat"`
-					Text string `json:"text"`
-				} `json:"message"`
-			} `json:"result"`
-			Error struct {
+			Ok     bool             `json:"ok"`
+			Result []TelegramUpdate `json:"result"`
+			Error  struct {
 				Code    int    `json:"code"`
 				Message string `json:"message"`
 			} `json:"error"`
@@ -3157,34 +3291,15 @@ func telegramPolling() {
 				chatID := update.Message.Chat.ID
 				text := update.Message.Text
 				profile := TelegramProfile{
-					ID:        chatID,
+					ID:        update.Message.From.ID,
 					Username:  update.Message.From.Username,
 					FirstName: update.Message.From.FirstName,
 				}
 
-				// 存储chat_id
-				rememberChatID(chatID)
-				printlnUTF8(fmt.Sprintf("存储chat_id: %d", chatID))
-
-				// 检查用户状态
-				stateMutex.Lock()
-				state, exists := userStates[chatID]
-				stateMutex.Unlock()
-
-				// 如果用户有状态，处理状态相关的输入
-				if exists {
-					handleUserState(chatID, text, state)
-					continue
-				}
-
-				// 处理命令
-				trimmedText := strings.TrimSpace(text)
-				// 调试日志：打印处理命令前的信息
-				printlnUTF8("=== 处理命令 ===")
-				printlnUTF8(fmt.Sprintf("原始文本: '%s'", sanitizeTelegramText(text)))
-				printlnUTF8(fmt.Sprintf("去除空格后: '%s'", trimmedText))
-
-				processTelegramCommand(chatID, text, profile)
+				processTelegramMessage(chatID, text, profile)
+			}
+			if update.CallbackQuery.Data != "" {
+				processTelegramCallback(update.CallbackQuery)
 			}
 		}
 

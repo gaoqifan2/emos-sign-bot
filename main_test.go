@@ -31,8 +31,12 @@ func resetTestState(t *testing.T) {
 		DataFile:            filepath.Join(t.TempDir(), "data.json"),
 	}
 	telegramMessageSender = func(chatID int64, text string) {}
+	telegramKeyboardSender = func(chatID int64, text string, keyboard [][]InlineKeyboardButton) {}
+	telegramCallbackAnswerer = func(callbackID string, text string) {}
 	t.Cleanup(func() {
 		telegramMessageSender = defaultSendTelegramMessage
+		telegramKeyboardSender = defaultSendTelegramMessageWithInlineKeyboard
+		telegramCallbackAnswerer = defaultAnswerTelegramCallbackQuery
 	})
 }
 
@@ -281,8 +285,10 @@ func TestAdminListPaginatesFiveUsersPerPage(t *testing.T) {
 	}
 
 	var sent string
-	telegramMessageSender = func(chatID int64, text string) {
+	var keyboard [][]InlineKeyboardButton
+	telegramKeyboardSender = func(chatID int64, text string, inlineKeyboard [][]InlineKeyboardButton) {
 		sent = text
+		keyboard = inlineKeyboard
 	}
 
 	handleListCommand(99, "/list")
@@ -296,8 +302,8 @@ func TestAdminListPaginatesFiveUsersPerPage(t *testing.T) {
 	if strings.Contains(sent, "账号 #6") {
 		t.Fatalf("first page should not include sixth account: %q", sent)
 	}
-	if !strings.Contains(sent, "/list 2") {
-		t.Fatalf("next page hint missing: %q", sent)
+	if len(keyboard) != 1 || len(keyboard[0]) != 1 || keyboard[0][0].CallbackData != "list_page:2" {
+		t.Fatalf("next page button missing: %#v", keyboard)
 	}
 }
 
@@ -315,8 +321,10 @@ func TestAdminListSecondPageKeepsGlobalNumbers(t *testing.T) {
 	}
 
 	var sent string
-	telegramMessageSender = func(chatID int64, text string) {
+	var keyboard [][]InlineKeyboardButton
+	telegramKeyboardSender = func(chatID int64, text string, inlineKeyboard [][]InlineKeyboardButton) {
 		sent = text
+		keyboard = inlineKeyboard
 	}
 
 	handleListCommand(99, "/list 2")
@@ -330,8 +338,43 @@ func TestAdminListSecondPageKeepsGlobalNumbers(t *testing.T) {
 	if strings.Contains(sent, "账号 #1") {
 		t.Fatalf("second page should not include first account: %q", sent)
 	}
-	if !strings.Contains(sent, "/list 1") {
-		t.Fatalf("previous page hint missing: %q", sent)
+	if len(keyboard) != 1 || len(keyboard[0]) != 1 || keyboard[0][0].CallbackData != "list_page:1" {
+		t.Fatalf("previous page button missing: %#v", keyboard)
+	}
+}
+
+func TestListPaginationCallbackSendsRequestedPage(t *testing.T) {
+	resetTestState(t)
+
+	adminChatIds[99] = true
+	users = []User{
+		{Token: "1001_aa", Username: "user1", ChatID: 1, Time: "01:00:00"},
+		{Token: "1002_bb", Username: "user2", ChatID: 2, Time: "02:00:00"},
+		{Token: "1003_cc", Username: "user3", ChatID: 3, Time: "03:00:00"},
+		{Token: "1004_dd", Username: "user4", ChatID: 4, Time: "04:00:00"},
+		{Token: "1005_ee", Username: "user5", ChatID: 5, Time: "05:00:00"},
+		{Token: "1006_ff", Username: "user6", ChatID: 6, Time: "06:00:00"},
+	}
+
+	var sent string
+	telegramKeyboardSender = func(chatID int64, text string, inlineKeyboard [][]InlineKeyboardButton) {
+		sent = text
+	}
+
+	processTelegramCallback(TelegramCallbackQuery{
+		ID:   "callback-1",
+		From: TelegramUser{ID: 99},
+		Message: TelegramMessage{
+			Chat: TelegramChat{ID: 99},
+		},
+		Data: "list_page:2",
+	})
+
+	if !strings.Contains(sent, "第 <b>2/2</b> 页") {
+		t.Fatalf("callback did not send second page: %q", sent)
+	}
+	if !strings.Contains(sent, "账号 #6") {
+		t.Fatalf("callback page missing global account number 6: %q", sent)
 	}
 }
 
