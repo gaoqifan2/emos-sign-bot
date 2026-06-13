@@ -2252,14 +2252,14 @@ func buildListMessage(chatID int64, page int) (string, [][]InlineKeyboardButton,
 		end = len(visibleUsers)
 	}
 
-	message := fmt.Sprintf("📋 <b>自动签到账号列表</b>\n\n🔹 第 <b>%d/%d</b> 页 · 共 <b>%d</b> 个账号\n\n", page, totalPages, len(visibleUsers))
+	message := fmt.Sprintf("📋 <b>当前签到用户列表</b>\n━━━━━━━━━━━━\n📄 第 <b>%d/%d</b> 页  共 <b>%d</b> 个账号\n---------\n", page, totalPages, len(visibleUsers))
 	for i, user := range visibleUsers[start:end] {
-		message += formatListUser(start+i+1, user, admin)
+		message += formatListUser(start+i+1, user)
 		if i < end-start-1 {
-			message += "\n"
+			message += "---------\n"
 		}
 	}
-	message += "\n💡 取消签到：<code>/cancel 编号</code>"
+	message += "---------\n💡 取消签到：<code>/cancel 编号</code>"
 	keyboard := buildListPaginationKeyboard(page, totalPages)
 	return message, keyboard, true
 }
@@ -2276,7 +2276,7 @@ func parseListPage(text string) int {
 	return page
 }
 
-func formatListUser(index int, user User, admin bool) string {
+func formatListUser(index int, user User) string {
 	username := user.Username
 	if username == "" {
 		username = "未知用户"
@@ -2285,16 +2285,11 @@ func formatListUser(index int, user User, admin bool) string {
 	if remark == "" {
 		remark = "-"
 	}
-	owner := ""
-	if admin {
-		owner = fmt.Sprintf(" · Owner:<code>%d</code>", user.ChatID)
-	}
-	return fmt.Sprintf("%d. <b>%s</b> · %s%s\n   🔑 <code>%s</code> · 📝 %s\n",
+	return fmt.Sprintf("%d. 👤 <b>用户名:</b> <b>%s</b>\n⏰ <b>时间:</b> <b>%s</b>\n🎲 <b>今日随机时间:</b> <b>%s</b>\n📝 <b>备注:</b> %s\n",
 		index,
 		htmlEscape(username),
 		htmlEscape(formatListSchedule(user)),
-		owner,
-		htmlEscape(truncateToken(user.Token)),
+		htmlEscape(formatListRandomTime(user)),
 		htmlEscape(remark),
 	)
 }
@@ -2321,12 +2316,16 @@ func formatRandomTime(randomTime string) string {
 
 func formatListSchedule(user User) string {
 	if user.Random {
-		if strings.TrimSpace(user.RandomTime) == "" {
-			return "随机"
-		}
-		return "随机 " + formatRandomTime(user.RandomTime)
+		return "随机"
 	}
 	return formatScheduleTime(user)
+}
+
+func formatListRandomTime(user User) string {
+	if !user.Random {
+		return "-"
+	}
+	return formatRandomTime(user.RandomTime)
 }
 
 func buildListPaginationKeyboard(page, totalPages int) [][]InlineKeyboardButton {
@@ -2964,6 +2963,36 @@ func pickSignContent(contents []string) string {
 	return validContents[rand.Intn(len(validContents))]
 }
 
+var dreamSignMessages = []string{
+	"梦到你了", "随心打卡", "今天也在", "悄悄签到", "路过一下", "好运来", "醒来签到", "梦里见", "来签个到", "今日份到",
+	"准时出现", "小小打卡", "心情不错", "继续前进", "保持热爱", "慢慢来", "会变好的", "有点开心", "照常营业", "我来啦",
+	"今天真好", "浅签一下", "顺手签到", "又见面了", "梦醒打卡", "风很温柔", "月亮在线", "星星作证", "今天也行", "不慌不忙",
+	"好运在线", "开心一点", "稳稳签到", "平安喜乐", "万事顺意", "一切都好", "继续开心", "轻轻路过", "灵感来了", "梦里有光",
+	"早安世界", "午后路过", "夜里发光", "云也温柔", "风在唱歌", "雨停了吧", "太阳醒了", "月色正好", "星河滚烫", "山海可期",
+	"日子闪光", "今天不错", "小事也甜", "笑一下吧", "别太累了", "喝口水呀", "好好吃饭", "早点休息", "保持可爱", "保持清醒",
+	"心里有光", "眼里有梦", "脚下有风", "一路有你", "好运敲门", "快乐冒泡", "烦恼退散", "元气加载", "状态在线", "温柔在线",
+	"认真生活", "慢慢变好", "偷偷努力", "大胆向前", "继续发光", "别怕有我", "平安就好", "快乐就好", "今天可以", "明天更好",
+	"梦很明亮", "梦到星星", "梦里开花", "梦里晴天", "梦见好运", "梦见月亮", "梦见春天", "梦见烟火", "梦见微风", "梦见日出",
+	"醒来很好", "醒来快乐", "醒来有光", "醒来顺利", "醒来好运", "醒来继续", "醒来加油", "醒来营业", "醒来冒泡", "醒来签个到",
+	"今天有糖", "今天有风", "今天有光", "今天有梦", "今天有你", "今天顺利", "今天安稳", "今天快乐", "今天轻松", "今天漂亮",
+	"来沾好运", "来点快乐", "来点元气", "来点阳光", "来点微风", "来点甜味", "来点灵感", "来点勇气", "来点好运", "来点开心",
+	"轻松一下", "安静打卡", "认真签到", "随便说说", "梦话签到", "胡言乱语", "刚好路过", "顺路来了", "按时冒泡", "准点冒泡",
+	"小声签到", "偷偷出现", "快乐出现", "准时上班", "今日营业", "今日在线", "今天到场", "我在这里", "我也来了", "我又来了",
+	"一切顺利", "一路顺风", "万事可期", "诸事顺遂", "喜乐常在", "好运常在", "快乐常在", "星光常在", "温柔常在", "热爱常在",
+	"别急慢来", "慢慢发光", "慢慢靠近", "慢慢实现", "慢慢喜欢", "慢慢勇敢", "慢慢自由", "慢慢开心", "慢慢睡醒", "慢慢签完",
+	"可以可以", "真不错呀", "稳住别慌", "问题不大", "继续保持", "今日达成", "打卡达成", "签到达成", "任务完成", "状态不错",
+	"风吹来了", "云飘过去", "花开一点", "雨落一点", "光落下来", "夜色温柔", "晨光正好", "晚风刚好", "人间值得", "生活可爱",
+	"心事放下", "烦恼少点", "快乐多点", "好运多点", "甜味多点", "勇气多点", "灵感多点", "笑容多点", "月光多点", "星光多点",
+	"梦别太满", "梦要发芽", "梦会开花", "梦会发光", "梦会抵达", "梦会成真", "梦在路上", "梦很靠近", "梦还热着", "梦里签到",
+	"今天别卷", "今天放晴", "今天很稳", "今天很甜", "今天很乖", "今天很棒", "今天很酷", "今天很好", "今天满分", "今天过关",
+	"好运签收", "快乐签收", "元气签收", "阳光签收", "微风签收", "勇气签收", "灵感签收", "甜味签收", "平安签收", "喜乐签收",
+	"随口一签", "随梦一签", "顺手一签", "路过一签", "清醒一签", "迷糊一签", "快乐一签", "安稳一签", "好运一签", "温柔一签",
+}
+
+func randomDreamSignMessage() string {
+	return pickSignContent(dreamSignMessages)
+}
+
 // 执行签到
 func checkin(token string) (CheckinResult, error, string) {
 	var result CheckinResult
@@ -3086,7 +3115,7 @@ func checkin(token string) (CheckinResult, error, string) {
 		// 混合内容
 		content = pickSignContent(mixedContent)
 	}
-	content = normalizeSignContent(content)
+	content = randomDreamSignMessage()
 
 	// 将content作为查询参数添加到URL中
 	url := fmt.Sprintf("%s/api/user/sign?content=%s", config.ApiBaseURL, url.QueryEscape(content))

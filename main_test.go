@@ -215,6 +215,23 @@ func TestPickSignContentSkipsLongMessages(t *testing.T) {
 	}
 }
 
+func TestDreamSignMessagesAreValidShortMessages(t *testing.T) {
+	if len(dreamSignMessages) < 200 {
+		t.Fatalf("dream sign messages count = %d, want >= 200", len(dreamSignMessages))
+	}
+	for _, content := range dreamSignMessages {
+		if !isValidSignContent(content) {
+			t.Fatalf("dream sign message %q is invalid, length=%d", content, len([]rune(content)))
+		}
+	}
+	for i := 0; i < 50; i++ {
+		content := randomDreamSignMessage()
+		if !isValidSignContent(content) {
+			t.Fatalf("random dream sign message %q is invalid", content)
+		}
+	}
+}
+
 func TestApplyTokenOwnersFromDataOverwritesChatID(t *testing.T) {
 	resetTestState(t)
 
@@ -296,11 +313,17 @@ func TestAdminListPaginatesFiveUsersPerPage(t *testing.T) {
 	if !strings.Contains(sent, "第 <b>1/2</b> 页") {
 		t.Fatalf("page header missing: %q", sent)
 	}
-	if !strings.Contains(sent, "1. <b>user1</b>") || !strings.Contains(sent, "5. <b>user5</b>") {
+	if !strings.Contains(sent, "1. 👤 <b>用户名:</b> <b>user1</b>") || !strings.Contains(sent, "5. 👤 <b>用户名:</b> <b>user5</b>") {
 		t.Fatalf("first page missing expected account numbers: %q", sent)
 	}
-	if strings.Contains(sent, "6. <b>user6</b>") {
+	if strings.Contains(sent, "6. 👤 <b>用户名:</b> <b>user6</b>") {
 		t.Fatalf("first page should not include sixth account: %q", sent)
+	}
+	if strings.Contains(sent, "Token") || strings.Contains(sent, "Owner") || strings.Contains(sent, "1001_aa") {
+		t.Fatalf("compact list should not expose token or owner: %q", sent)
+	}
+	if !strings.Contains(sent, "---------") {
+		t.Fatalf("compact separator missing: %q", sent)
 	}
 	if len(keyboard) != 2 ||
 		len(keyboard[0]) != 2 ||
@@ -337,10 +360,10 @@ func TestAdminListSecondPageKeepsGlobalNumbers(t *testing.T) {
 	if !strings.Contains(sent, "第 <b>2/2</b> 页") {
 		t.Fatalf("page header missing: %q", sent)
 	}
-	if !strings.Contains(sent, "6. <b>user6</b>") {
+	if !strings.Contains(sent, "6. 👤 <b>用户名:</b> <b>user6</b>") {
 		t.Fatalf("second page missing global account number 6: %q", sent)
 	}
-	if strings.Contains(sent, "1. <b>user1</b>") {
+	if strings.Contains(sent, "1. 👤 <b>用户名:</b> <b>user1</b>") {
 		t.Fatalf("second page should not include first account: %q", sent)
 	}
 	if len(keyboard) != 2 ||
@@ -397,7 +420,7 @@ func TestListPaginationCallbackSendsRequestedPage(t *testing.T) {
 	if !strings.Contains(sent, "第 <b>2/2</b> 页") {
 		t.Fatalf("callback did not send second page: %q", sent)
 	}
-	if !strings.Contains(sent, "6. <b>user6</b>") {
+	if !strings.Contains(sent, "6. 👤 <b>用户名:</b> <b>user6</b>") {
 		t.Fatalf("callback page missing global account number 6: %q", sent)
 	}
 }
