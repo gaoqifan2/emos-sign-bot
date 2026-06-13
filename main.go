@@ -1232,7 +1232,7 @@ func processTelegramCommand(chatID int64, text string, profile TelegramProfile) 
 	case "/cancel":
 		handleCancelCommand(chatID, text)
 	case "/list":
-		handleListCommand(chatID)
+		handleListCommand(chatID, text)
 	case "/broadcast":
 		handleBroadcastCommand(chatID, text)
 	case "/admin":
@@ -2133,8 +2133,11 @@ func escapeMarkdownV2(text string) string {
 }
 
 // 处理列出用户命令
-func handleListCommand(chatID int64) {
+const listPageSize = 5
+
+func handleListCommand(chatID int64, text string) {
 	admin := isAdmin(chatID)
+	page := parseListPage(text)
 
 	usersMutex.Lock()
 	defer usersMutex.Unlock()
@@ -2151,42 +2154,83 @@ func handleListCommand(chatID int64) {
 		return
 	}
 
-	message := "当前签到用户列表:\n"
-	for i, user := range visibleUsers {
-		message += fmt.Sprintf("%d. Token: %s\n", i+1, truncateToken(user.Token))
-		if user.Username != "" {
-			message += fmt.Sprintf("   用户名: <b>%s</b>\n", htmlEscape(user.Username))
-		}
-		if admin {
-			message += fmt.Sprintf("   Owner ChatID: %d\n", user.ChatID)
-		}
-		message += fmt.Sprintf("   时间: %s\n", func() string {
-			if user.Random {
-				return "随机"
-			}
-			return user.Time
-		}())
-		if user.Random {
-			if user.RandomTime != "" {
-				message += fmt.Sprintf("   今日随机时间: %s\n", user.RandomTime)
-			} else {
-				message += "   今日随机时间: 未生成\n"
-			}
-		}
-		if user.Remark != "" {
-			// 确保备注中不包含Markdown特殊字符
-			safeRemark := strings.ReplaceAll(user.Remark, "*", "")
-			safeRemark = strings.ReplaceAll(safeRemark, "_", "")
-			safeRemark = strings.ReplaceAll(safeRemark, "`", "")
-			safeRemark = strings.ReplaceAll(safeRemark, "[", "")
-			safeRemark = strings.ReplaceAll(safeRemark, "]", "")
-			safeRemark = strings.ReplaceAll(safeRemark, "(", "")
-			safeRemark = strings.ReplaceAll(safeRemark, ")", "")
-			message += fmt.Sprintf("   备注: %s\n", safeRemark)
-		}
+	totalPages := (len(visibleUsers) + listPageSize - 1) / listPageSize
+	if page > totalPages {
+		page = totalPages
+	}
+	start := (page - 1) * listPageSize
+	end := start + listPageSize
+	if end > len(visibleUsers) {
+		end = len(visibleUsers)
 	}
 
+	message := fmt.Sprintf("📋 <b>自动签到账号列表</b>\n\n🔹 第 <b>%d/%d</b> 页 · 共 <b>%d</b> 个账号\n\n", page, totalPages, len(visibleUsers))
+	for i, user := range visibleUsers[start:end] {
+		message += formatListUser(start+i+1, user, admin)
+		if i < end-start-1 {
+			message += "\n"
+		}
+	}
+	message += "\n💡 取消签到：<code>/cancel 编号</code>"
+	if page < totalPages {
+		message += fmt.Sprintf("\n➡️ 下一页：<code>/list %d</code>", page+1)
+	}
+	if page > 1 {
+		message += fmt.Sprintf("\n⬅️ 上一页：<code>/list %d</code>", page-1)
+	}
 	sendTelegramMessage(chatID, message)
+}
+
+func parseListPage(text string) int {
+	fields := strings.Fields(strings.TrimSpace(text))
+	if len(fields) < 2 {
+		return 1
+	}
+	page, err := strconv.Atoi(fields[1])
+	if err != nil || page < 1 {
+		return 1
+	}
+	return page
+}
+
+func formatListUser(index int, user User, admin bool) string {
+	username := user.Username
+	if username == "" {
+		username = "未知用户"
+	}
+	message := fmt.Sprintf("🔹 <b>账号 #%d</b>\n", index)
+	message += fmt.Sprintf(" ├ 👤 用户名：<b>%s</b>\n", htmlEscape(username))
+	message += fmt.Sprintf(" ├ 🔑 Token：<code>%s</code>\n", htmlEscape(truncateToken(user.Token)))
+	message += fmt.Sprintf(" ├ ⏰ 签到时间：%s\n", htmlEscape(formatScheduleTime(user)))
+	if user.Random {
+		message += fmt.Sprintf(" ├ 🎲 今日随机：%s\n", htmlEscape(formatRandomTime(user.RandomTime)))
+	}
+	if user.Remark != "" {
+		message += fmt.Sprintf(" ├ 📝 备注：%s\n", htmlEscape(user.Remark))
+	}
+	if admin {
+		message += fmt.Sprintf(" ╰ 🧑‍💼 Owner：<code>%d</code>\n", user.ChatID)
+	} else {
+		message += " ╰ 🗑 删除：<code>/cancel 编号</code>\n"
+	}
+	return message
+}
+
+func formatScheduleTime(user User) string {
+	if user.Random {
+		return "随机"
+	}
+	if strings.TrimSpace(user.Time) == "" {
+		return "未设置"
+	}
+	return user.Time
+}
+
+func formatRandomTime(randomTime string) string {
+	if strings.TrimSpace(randomTime) == "" {
+		return "未生成"
+	}
+	return randomTime
 }
 
 // 处理帮助命令
@@ -2867,8 +2911,12 @@ func checkin(token string) (CheckinResult, error, string) {
 
 // 发送签到通知
 func sendCheckinNotification(user User, result CheckinResult, statusText string) {
-	message := fmt.Sprintf("📅 签到通知\n\n用户名: %s\n签到状态: %s\n累计签到: %d 天\n获得萝卜: %d 个\n今日签到排名: %d",
-		user.Username, statusText, result.ContinuousDays, result.EarnPoint, result.SignIndex)
+	username := user.Username
+	if username == "" {
+		username = "未知用户"
+	}
+	message := fmt.Sprintf("🎉 <b>签到成功！</b>\n\n🔹 <b>%s</b>\n ├ ✅ 签到状态：%s\n ├ 🌱 累计签到：%d 天\n ├ 🥕 获得萝卜：%d 个\n ╰ 🏆 今日排名：%d\n\n💡 明天也记得来 emos 签到吧！",
+		htmlEscape(username), htmlEscape(statusText), result.ContinuousDays, result.EarnPoint, result.SignIndex)
 	notifyUser(user, message)
 }
 

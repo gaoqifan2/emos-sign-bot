@@ -266,3 +266,96 @@ func TestApplyDefaultOwnerToUnownedUsersUsesSoleAdmin(t *testing.T) {
 		t.Fatalf("owned ChatID changed to %d", users[1].ChatID)
 	}
 }
+
+func TestAdminListPaginatesFiveUsersPerPage(t *testing.T) {
+	resetTestState(t)
+
+	adminChatIds[99] = true
+	users = []User{
+		{Token: "1001_aa", Username: "user1", ChatID: 1, Time: "01:00:00"},
+		{Token: "1002_bb", Username: "user2", ChatID: 2, Time: "02:00:00"},
+		{Token: "1003_cc", Username: "user3", ChatID: 3, Time: "03:00:00"},
+		{Token: "1004_dd", Username: "user4", ChatID: 4, Time: "04:00:00"},
+		{Token: "1005_ee", Username: "user5", ChatID: 5, Time: "05:00:00"},
+		{Token: "1006_ff", Username: "user6", ChatID: 6, Time: "06:00:00"},
+	}
+
+	var sent string
+	telegramMessageSender = func(chatID int64, text string) {
+		sent = text
+	}
+
+	handleListCommand(99, "/list")
+
+	if !strings.Contains(sent, "第 <b>1/2</b> 页") {
+		t.Fatalf("page header missing: %q", sent)
+	}
+	if !strings.Contains(sent, "账号 #1") || !strings.Contains(sent, "账号 #5") {
+		t.Fatalf("first page missing expected account numbers: %q", sent)
+	}
+	if strings.Contains(sent, "账号 #6") {
+		t.Fatalf("first page should not include sixth account: %q", sent)
+	}
+	if !strings.Contains(sent, "/list 2") {
+		t.Fatalf("next page hint missing: %q", sent)
+	}
+}
+
+func TestAdminListSecondPageKeepsGlobalNumbers(t *testing.T) {
+	resetTestState(t)
+
+	adminChatIds[99] = true
+	users = []User{
+		{Token: "1001_aa", Username: "user1", ChatID: 1, Time: "01:00:00"},
+		{Token: "1002_bb", Username: "user2", ChatID: 2, Time: "02:00:00"},
+		{Token: "1003_cc", Username: "user3", ChatID: 3, Time: "03:00:00"},
+		{Token: "1004_dd", Username: "user4", ChatID: 4, Time: "04:00:00"},
+		{Token: "1005_ee", Username: "user5", ChatID: 5, Time: "05:00:00"},
+		{Token: "1006_ff", Username: "user6", ChatID: 6, Time: "06:00:00"},
+	}
+
+	var sent string
+	telegramMessageSender = func(chatID int64, text string) {
+		sent = text
+	}
+
+	handleListCommand(99, "/list 2")
+
+	if !strings.Contains(sent, "第 <b>2/2</b> 页") {
+		t.Fatalf("page header missing: %q", sent)
+	}
+	if !strings.Contains(sent, "账号 #6") {
+		t.Fatalf("second page missing global account number 6: %q", sent)
+	}
+	if strings.Contains(sent, "账号 #1") {
+		t.Fatalf("second page should not include first account: %q", sent)
+	}
+	if !strings.Contains(sent, "/list 1") {
+		t.Fatalf("previous page hint missing: %q", sent)
+	}
+}
+
+func TestCheckinSuccessNotificationUsesTreeFormat(t *testing.T) {
+	resetTestState(t)
+
+	var sent string
+	telegramMessageSender = func(chatID int64, text string) {
+		sent = text
+	}
+
+	sendCheckinNotification(User{Username: "alice", ChatID: 123}, CheckinResult{
+		ContinuousDays: 7,
+		EarnPoint:      3,
+		SignIndex:      21,
+	}, "签到成功")
+
+	if !strings.Contains(sent, "🎉 <b>签到成功！</b>") {
+		t.Fatalf("success title missing: %q", sent)
+	}
+	if !strings.Contains(sent, "├ ✅ 签到状态：签到成功") ||
+		!strings.Contains(sent, "├ 🌱 累计签到：7 天") ||
+		!strings.Contains(sent, "├ 🥕 获得萝卜：3 个") ||
+		!strings.Contains(sent, "╰ 🏆 今日排名：21") {
+		t.Fatalf("tree details missing: %q", sent)
+	}
+}
