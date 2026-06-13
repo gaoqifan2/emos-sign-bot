@@ -2260,22 +2260,22 @@ func formatListUser(index int, user User, admin bool) string {
 	if username == "" {
 		username = "未知用户"
 	}
-	message := fmt.Sprintf("🔹 <b>账号 #%d</b>\n", index)
-	message += fmt.Sprintf(" ├ 👤 用户名：<b>%s</b>\n", htmlEscape(username))
-	message += fmt.Sprintf(" ├ 🔑 Token：<code>%s</code>\n", htmlEscape(truncateToken(user.Token)))
-	message += fmt.Sprintf(" ├ ⏰ 签到时间：%s\n", htmlEscape(formatScheduleTime(user)))
-	if user.Random {
-		message += fmt.Sprintf(" ├ 🎲 今日随机：%s\n", htmlEscape(formatRandomTime(user.RandomTime)))
+	remark := strings.TrimSpace(user.Remark)
+	if remark == "" {
+		remark = "-"
 	}
-	if user.Remark != "" {
-		message += fmt.Sprintf(" ├ 📝 备注：%s\n", htmlEscape(user.Remark))
-	}
+	owner := ""
 	if admin {
-		message += fmt.Sprintf(" ╰ 🧑‍💼 Owner：<code>%d</code>\n", user.ChatID)
-	} else {
-		message += " ╰ 🗑 删除：<code>/cancel 编号</code>\n"
+		owner = fmt.Sprintf(" · Owner:<code>%d</code>", user.ChatID)
 	}
-	return message
+	return fmt.Sprintf("%d. <b>%s</b> · %s%s\n   🔑 <code>%s</code> · 📝 %s\n",
+		index,
+		htmlEscape(username),
+		htmlEscape(formatListSchedule(user)),
+		owner,
+		htmlEscape(truncateToken(user.Token)),
+		htmlEscape(remark),
+	)
 }
 
 func formatScheduleTime(user User) string {
@@ -2292,27 +2292,44 @@ func formatRandomTime(randomTime string) string {
 	if strings.TrimSpace(randomTime) == "" {
 		return "未生成"
 	}
+	if strings.EqualFold(strings.TrimSpace(randomTime), "checked") {
+		return "已签到"
+	}
 	return randomTime
 }
 
+func formatListSchedule(user User) string {
+	if user.Random {
+		if strings.TrimSpace(user.RandomTime) == "" {
+			return "随机"
+		}
+		return "随机 " + formatRandomTime(user.RandomTime)
+	}
+	return formatScheduleTime(user)
+}
+
 func buildListPaginationKeyboard(page, totalPages int) [][]InlineKeyboardButton {
-	buttons := make([]InlineKeyboardButton, 0, 2)
-	if page > 1 {
-		buttons = append(buttons, InlineKeyboardButton{
-			Text:         "⬅️ 上一页",
-			CallbackData: fmt.Sprintf("list_page:%d", page-1),
-		})
-	}
-	if page < totalPages {
-		buttons = append(buttons, InlineKeyboardButton{
-			Text:         "下一页 ➡️",
-			CallbackData: fmt.Sprintf("list_page:%d", page+1),
-		})
-	}
-	if len(buttons) == 0 {
+	if totalPages <= 1 {
 		return nil
 	}
-	return [][]InlineKeyboardButton{buttons}
+	const buttonsPerRow = 5
+	keyboard := make([][]InlineKeyboardButton, 0, (totalPages+buttonsPerRow-1)/buttonsPerRow)
+	for i := 1; i <= totalPages; i++ {
+		text := strconv.Itoa(i)
+		if i == page {
+			text = "·" + text + "·"
+		}
+		button := InlineKeyboardButton{
+			Text:         text,
+			CallbackData: fmt.Sprintf("list_page:%d", i),
+		}
+		if len(keyboard) == 0 || len(keyboard[len(keyboard)-1]) >= buttonsPerRow {
+			keyboard = append(keyboard, []InlineKeyboardButton{button})
+			continue
+		}
+		keyboard[len(keyboard)-1] = append(keyboard[len(keyboard)-1], button)
+	}
+	return keyboard
 }
 
 // 处理帮助命令

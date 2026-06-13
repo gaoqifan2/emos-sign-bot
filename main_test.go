@@ -296,14 +296,14 @@ func TestAdminListPaginatesFiveUsersPerPage(t *testing.T) {
 	if !strings.Contains(sent, "第 <b>1/2</b> 页") {
 		t.Fatalf("page header missing: %q", sent)
 	}
-	if !strings.Contains(sent, "账号 #1") || !strings.Contains(sent, "账号 #5") {
+	if !strings.Contains(sent, "1. <b>user1</b>") || !strings.Contains(sent, "5. <b>user5</b>") {
 		t.Fatalf("first page missing expected account numbers: %q", sent)
 	}
-	if strings.Contains(sent, "账号 #6") {
+	if strings.Contains(sent, "6. <b>user6</b>") {
 		t.Fatalf("first page should not include sixth account: %q", sent)
 	}
-	if len(keyboard) != 1 || len(keyboard[0]) != 1 || keyboard[0][0].CallbackData != "list_page:2" {
-		t.Fatalf("next page button missing: %#v", keyboard)
+	if len(keyboard) != 1 || len(keyboard[0]) != 2 || keyboard[0][0].Text != "·1·" || keyboard[0][1].CallbackData != "list_page:2" {
+		t.Fatalf("numeric page buttons missing: %#v", keyboard)
 	}
 }
 
@@ -332,14 +332,14 @@ func TestAdminListSecondPageKeepsGlobalNumbers(t *testing.T) {
 	if !strings.Contains(sent, "第 <b>2/2</b> 页") {
 		t.Fatalf("page header missing: %q", sent)
 	}
-	if !strings.Contains(sent, "账号 #6") {
+	if !strings.Contains(sent, "6. <b>user6</b>") {
 		t.Fatalf("second page missing global account number 6: %q", sent)
 	}
-	if strings.Contains(sent, "账号 #1") {
+	if strings.Contains(sent, "1. <b>user1</b>") {
 		t.Fatalf("second page should not include first account: %q", sent)
 	}
-	if len(keyboard) != 1 || len(keyboard[0]) != 1 || keyboard[0][0].CallbackData != "list_page:1" {
-		t.Fatalf("previous page button missing: %#v", keyboard)
+	if len(keyboard) != 1 || len(keyboard[0]) != 2 || keyboard[0][0].CallbackData != "list_page:1" || keyboard[0][1].Text != "·2·" {
+		t.Fatalf("numeric page buttons missing: %#v", keyboard)
 	}
 }
 
@@ -373,7 +373,7 @@ func TestListPaginationCallbackSendsRequestedPage(t *testing.T) {
 	if !strings.Contains(sent, "第 <b>2/2</b> 页") {
 		t.Fatalf("callback did not send second page: %q", sent)
 	}
-	if !strings.Contains(sent, "账号 #6") {
+	if !strings.Contains(sent, "6. <b>user6</b>") {
 		t.Fatalf("callback page missing global account number 6: %q", sent)
 	}
 }
